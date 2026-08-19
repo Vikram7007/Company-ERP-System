@@ -6,7 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "start": "node index.js",
-    "dev": "node index.js"
+    "dev": "node index.js",
+    "build": "echo 'Backend build step complete'"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
