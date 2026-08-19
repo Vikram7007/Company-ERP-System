@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Mentor, Student, StudentApplication, FeeTransaction, Assignment, Submission, DailyAttendanceReport, AttendanceRecord, LiveClass, RecordedLecture } from '../types';
-import { INITIAL_MENTORS, INITIAL_STUDENTS, INITIAL_APPLICATIONS, INITIAL_ASSIGNMENTS, INITIAL_LIVE_CLASSES, INITIAL_LECTURES } from '../data/mockData';
+import { Mentor, Student, StudentApplication, FeeTransaction, Assignment, Submission, DailyAttendanceReport, AttendanceRecord, LiveClass, RecordedLecture, Quiz } from '../types';
+import { INITIAL_MENTORS, INITIAL_STUDENTS, INITIAL_APPLICATIONS, INITIAL_ASSIGNMENTS, INITIAL_LIVE_CLASSES, INITIAL_LECTURES, INITIAL_QUIZZES } from '../data/mockData';
 
 interface DataContextType {
   mentors: Mentor[];
@@ -22,6 +22,8 @@ interface DataContextType {
   addLiveClass: (classData: Omit<LiveClass, 'id' | 'status'>) => void;
   endLiveClass: (classId: string, videoUrl: string) => void;
   addRecordedLecture: (lectureData: Omit<RecordedLecture, 'id' | 'viewsCount'>) => void;
+  quizzes: Quiz[];
+  updateQuizResult: (quizId: string, score: number, questionsAnswered: number) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -317,6 +319,33 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const [quizzes, setQuizzes] = useState<Quiz[]>(() => {
+    const saved = localStorage.getItem('websums_quizzes');
+    return saved ? JSON.parse(saved) : INITIAL_QUIZZES;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('websums_quizzes', JSON.stringify(quizzes));
+  }, [quizzes]);
+
+  const updateQuizResult = (quizId: string, score: number, questionsAnswered: number) => {
+    setQuizzes((prev) =>
+      prev.map((q) => {
+        if (q.id === quizId) {
+          const isFullScore = score >= 60;
+          return {
+            ...q,
+            status: isFullScore ? 'Completed' : 'In Progress',
+            bestScore: Math.max(q.bestScore || 0, score),
+            questionsAnswered: Math.max(q.questionsAnswered || 0, questionsAnswered),
+            progressPercent: isFullScore ? 100 : Math.round((questionsAnswered / q.totalQuestions) * 100)
+          };
+        }
+        return q;
+      })
+    );
+  };
+
   return (
     <DataContext.Provider
       value={{
@@ -338,7 +367,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         recordedLectures,
         addLiveClass,
         endLiveClass,
-        addRecordedLecture
+        addRecordedLecture,
+        quizzes,
+        updateQuizResult
       }}
     >
       {children}

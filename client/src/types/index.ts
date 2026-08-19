@@ -12,6 +12,28 @@ export interface User {
   token?: string;
 }
 
+export interface SyllabusLesson {
+  id: string;
+  title: string;
+  duration: string;
+  objectives: string[];
+  notesUrl?: string;
+  videoUrl?: string;
+  completed?: boolean;
+}
+
+export interface WeeklySyllabus {
+  week: number;
+  title: string;
+  topics: string[];
+  status: 'Completed' | 'In Progress' | 'Not Started' | 'Locked';
+  progressPercent: number;
+  lessonsCompleted: number;
+  totalLessons: number;
+  practicalProject?: string;
+  lessons?: SyllabusLesson[];
+}
+
 export interface Domain {
   id: string;
   name: string;
@@ -20,7 +42,7 @@ export interface Domain {
   studentsEnrolled: number;
   durationWeeks: number;
   description: string;
-  syllabus: { week: number; title: string; topics: string[] }[];
+  syllabus: WeeklySyllabus[];
 }
 
 export interface FeeTransaction {
@@ -172,15 +194,26 @@ export interface QuizQuestion {
   options: string[];
   correctAnswer: number;
   explanation: string;
+  category?: string;
+  domain?: string;
 }
 
 export interface Quiz {
   id: string;
   title: string;
   domain: string;
+  category: string;
+  difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
   durationMinutes: number;
   totalQuestions: number;
+  totalMarks: number;
+  xpReward: number;
   questions: QuizQuestion[];
+  status?: 'Not Started' | 'In Progress' | 'Completed' | 'Locked';
+  prerequisiteTitle?: string;
+  progressPercent?: number;
+  questionsAnswered?: number;
+  bestScore?: number;
 }
 
 export interface Certificate {

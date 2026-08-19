@@ -10,12 +10,168 @@ export const INITIAL_DOMAINS: Domain[] = [
     durationWeeks: 12,
     description: 'Master MongoDB, Express.js, React 19, Node.js, and TypeScript building enterprise SaaS solutions.',
     syllabus: [
-      { week: 1, title: 'HTML5, CSS3, Modern JS (ES6+)', topics: ['Semantic HTML', 'Flexbox/Grid', 'Async/Await', 'DOM Manipulation'] },
-      { week: 2, title: 'React Fundamentals & Hooks', topics: ['JSX', 'useState/useEffect', 'Custom Hooks', 'Tailwind CSS'] },
-      { week: 3, title: 'Advanced React & State Management', topics: ['Redux Toolkit', 'React Query', 'Context API', 'Routing'] },
-      { week: 4, title: 'Node.js & Express REST APIs', topics: ['Express Routing', 'Middleware', 'JWT Authentication', 'Error Handling'] },
-      { week: 5, title: 'Database Design & MongoDB Atlas', topics: ['Schemas', 'Mongoose ODM', 'Aggregation Pipelines', 'Indexing'] },
-      { week: 6, title: 'Full Stack Integration & Cloud Deployment', topics: ['Axios Integration', 'Vercel & Render', 'Cloudinary', 'CI/CD Pipelines'] }
+      {
+        week: 1,
+        title: 'HTML5, CSS3 & Modern JavaScript (ES6+)',
+        status: 'Completed',
+        progressPercent: 100,
+        lessonsCompleted: 8,
+        totalLessons: 8,
+        topics: ['Semantic HTML', 'Forms & Validation', 'Flexbox & CSS Grid', 'Responsive Web Design', 'ES6+ Syntax', 'DOM Manipulation', 'Async JavaScript', 'Fetch API'],
+        practicalProject: 'Build a responsive portfolio website with CSS Grid & Flexbox',
+        lessons: [
+          { id: 'm-w1-l1', title: 'Semantic HTML5 & Accessibility', duration: '35m', objectives: ['Use semantic tags (header, nav, section, article)', 'Implement accessible form controls'], completed: true },
+          { id: 'm-w1-l2', title: 'CSS3 Flexbox & Grid Masterclass', duration: '45m', objectives: ['Master 1D and 2D responsive layouts', 'Build fluid mobile-first grids'], completed: true },
+          { id: 'm-w1-l3', title: 'Modern JavaScript (ES6+) Core Concepts', duration: '50m', objectives: ['Understand let/const, arrow functions, destructuring', 'Master spread and rest operators'], completed: true },
+          { id: 'm-w1-l4', title: 'Async JS: Promises, Async/Await & Fetch', duration: '40m', objectives: ['Handle asynchronous operations using Promises', 'Fetch external API data using async/await'], completed: true }
+        ]
+      },
+      {
+        week: 2,
+        title: 'Advanced JavaScript & ES6+ Mastery',
+        status: 'Completed',
+        progressPercent: 100,
+        lessonsCompleted: 8,
+        totalLessons: 8,
+        topics: ['Scope & Hoisting', 'Closures', 'Event Loop & Call Stack', 'Web APIs', 'Local & Session Storage', 'JSON & Modules', 'Error Handling', 'API Integration'],
+        practicalProject: 'Build a JavaScript API-based application with dynamic data rendering',
+        lessons: [
+          { id: 'm-w2-l1', title: 'Scope, Hoisting & Execution Context', duration: '40m', objectives: ['Understand lexical scope and closures', 'Avoid variable scope pollution'], completed: true },
+          { id: 'm-w2-l2', title: 'Event Loop & Asynchronous Architecture', duration: '45m', objectives: ['Understand Call Stack, Microtask queue and Macro tasks'], completed: true }
+        ]
+      },
+      {
+        week: 3,
+        title: 'React Fundamentals & Hooks',
+        status: 'Completed',
+        progressPercent: 100,
+        lessonsCompleted: 7,
+        totalLessons: 7,
+        topics: ['React Intro & Vite', 'JSX & Components', 'Props & State Management', 'Hooks: useState & useEffect', 'useRef & Controlled Forms', 'Conditional Rendering', 'Tailwind CSS Integration'],
+        practicalProject: 'Build a Student Management Dashboard with React & Tailwind CSS',
+        lessons: [
+          { id: 'm-w3-l1', title: 'React 19 Core Architecture & Vite Setup', duration: '35m', objectives: ['Initialize React 19 apps with Vite', 'Understand JSX rendering pipeline'], completed: true },
+          { id: 'm-w3-l2', title: 'State Management with useState & useEffect', duration: '50m', objectives: ['Manage component state and side effects', 'Prevent infinite re-render loops'], completed: true }
+        ]
+      },
+      {
+        week: 4,
+        title: 'Advanced React & State Management',
+        status: 'Completed',
+        progressPercent: 100,
+        lessonsCompleted: 6,
+        totalLessons: 6,
+        topics: ['Custom Hooks', 'Context API', 'React Router v6', 'Protected Routes', 'Form Validation', 'Axios & API Integration', 'Component Optimization'],
+        practicalProject: 'Build a complete authentication-based React application',
+        lessons: [
+          { id: 'm-w4-l1', title: 'Global State Management with Context API', duration: '45m', objectives: ['Share global auth and data context across tree', 'Optimize Context provider re-renders'], completed: true }
+        ]
+      },
+      {
+        week: 5,
+        title: 'Node.js & Express Architecture',
+        status: 'In Progress',
+        progressPercent: 70,
+        lessonsCompleted: 6,
+        totalLessons: 8,
+        topics: ['Node.js Modules & fs', 'npm Package Manager', 'Events & Streams', 'Environment Variables', 'Express Intro', 'Middleware Architecture', 'REST API Endpoints'],
+        practicalProject: 'Build a REST API using Node.js, Express & Custom Middleware',
+        lessons: [
+          { id: 'm-w5-l1', title: 'Node.js Runtime & Built-in Modules', duration: '40m', objectives: ['Understand Node event loop and non-blocking I/O', 'Use fs and path modules'], completed: true },
+          { id: 'm-w5-l2', title: 'Express Routing & Middleware Architecture', duration: '50m', objectives: ['Create modular Express routers', 'Build custom authentication middleware'], completed: false }
+        ]
+      },
+      {
+        week: 6,
+        title: 'Express.js & Production REST API Architecture',
+        status: 'Not Started',
+        progressPercent: 0,
+        lessonsCompleted: 0,
+        totalLessons: 7,
+        topics: ['Express Architecture', 'Routes & Controllers', 'Auth Middleware', 'HTTP Status Codes', 'API Validation', 'Pagination & Filtering', 'CORS Configuration'],
+        practicalProject: 'Build a production-style REST API with searching, pagination & filtering',
+        lessons: [
+          { id: 'm-w6-l1', title: 'MVC Architecture in Express.js', duration: '45m', objectives: ['Separate routes, controllers and data models', 'Standardize HTTP response format'], completed: false }
+        ]
+      },
+      {
+        week: 7,
+        title: 'Database Design, MongoDB & Mongoose ODM',
+        status: 'Not Started',
+        progressPercent: 0,
+        lessonsCompleted: 0,
+        totalLessons: 8,
+        topics: ['MongoDB Collections & Docs', 'CRUD Operations', 'MongoDB Atlas Setup', 'Mongoose Schemas & Models', 'Validation Rules', 'Document Relationships', 'populate() Method', 'Aggregation Pipeline'],
+        practicalProject: 'Create a complete MongoDB database for an internship management system',
+        lessons: [
+          { id: 'm-w7-l1', title: 'Mongoose Schemas, Models & Validation', duration: '45m', objectives: ['Define strongly typed Mongoose schemas', 'Implement field level validation rules'], completed: false }
+        ]
+      },
+      {
+        week: 8,
+        title: 'Enterprise Authentication & Authorization',
+        status: 'Not Started',
+        progressPercent: 0,
+        lessonsCompleted: 0,
+        totalLessons: 7,
+        topics: ['User Registration & Login', 'Password Hashing with bcrypt', 'JWT Access Tokens', 'Refresh Tokens & Cookies', 'Protected Routes', 'Role-Based Access Control (RBAC)'],
+        practicalProject: 'Build complete authentication and role-based authorization system',
+        lessons: [
+          { id: 'm-w8-l1', title: 'JWT Authentication & Refresh Tokens', duration: '50m', objectives: ['Issue secure HTTP-only cookie JWT tokens', 'Implement refresh token rotation'], completed: false }
+        ]
+      },
+      {
+        week: 9,
+        title: 'Full Stack MERN Integration & Media Uploads',
+        status: 'Not Started',
+        progressPercent: 0,
+        lessonsCompleted: 0,
+        totalLessons: 6,
+        topics: ['React + Node Integration', 'Axios API Services', 'Global Auth State', 'Backend Validation Handling', 'File Upload with Multer', 'Cloudinary Media Hosting'],
+        practicalProject: 'Connect React frontend with Node.js + MongoDB backend',
+        lessons: [
+          { id: 'm-w9-l1', title: 'Connecting React Frontend with Node.js Backend', duration: '45m', objectives: ['Configure CORS and Axios intercepters', 'Sync client state with API data'], completed: false }
+        ]
+      },
+      {
+        week: 10,
+        title: 'Advanced MERN: Redux Toolkit & Socket.IO',
+        status: 'Locked',
+        progressPercent: 0,
+        lessonsCompleted: 0,
+        totalLessons: 6,
+        topics: ['Redux Toolkit Setup', 'React Query Caching', 'Lazy Loading & Code Splitting', 'API Caching Strategies', 'Real-time Communication', 'Socket.IO Events'],
+        practicalProject: 'Build a real-time notification and chat feature using Socket.IO',
+        lessons: [
+          { id: 'm-w10-l1', title: 'Real-time WebSockets with Socket.IO', duration: '55m', objectives: ['Implement bi-directional event emission', 'Build real-time student notification alerts'], completed: false }
+        ]
+      },
+      {
+        week: 11,
+        title: 'Deployment, CI/CD & Cloud Infrastructure',
+        status: 'Locked',
+        progressPercent: 0,
+        lessonsCompleted: 0,
+        totalLessons: 5,
+        topics: ['Git & GitHub Workflows', 'Frontend Deployment (Vercel/Netlify)', 'Backend Cloud Deployment (Render)', 'MongoDB Atlas Whitelisting', 'Production Security Best Practices'],
+        practicalProject: 'Deploy the complete MERN application on Vercel and Render cloud',
+        lessons: [
+          { id: 'm-w11-l1', title: 'Deploying MERN Stack Apps to Production', duration: '50m', objectives: ['Configure environment variables on Render and Vercel', 'Enable HTTPS & CORS protection'], completed: false }
+        ]
+      },
+      {
+        week: 12,
+        title: 'Final Enterprise Industry Capstone Project',
+        status: 'Locked',
+        progressPercent: 0,
+        lessonsCompleted: 0,
+        totalLessons: 5,
+        topics: ['Full-Stack Architecture', 'Authentication & Authorization', 'Admin & Student Dashboards', 'MongoDB Aggregations', 'Deployment & Live Demo', 'Code Review & Documentation'],
+        practicalProject: 'Build, test, and present a complete production-level MERN SaaS application',
+        lessons: [
+          { id: 'm-w12-l1', title: 'Final Capstone Project Presentation & Evaluation', duration: '60m', objectives: ['Present production application code and UI', 'Complete peer review and mentor evaluation'], completed: false }
+        ]
+      }
     ]
   },
   {
@@ -27,23 +183,60 @@ export const INITIAL_DOMAINS: Domain[] = [
     durationWeeks: 12,
     description: 'Build neural networks, Computer Vision models, and LLM AI agents using Python and PyTorch.',
     syllabus: [
-      { week: 1, title: 'Python for AI & Math Foundations', topics: ['NumPy', 'Linear Algebra', 'Calculus for ML', 'Probability'] },
-      { week: 2, title: 'Neural Networks from Scratch', topics: ['Perceptrons', 'Backpropagation', 'Activation Functions', 'Optimizers'] },
-      { week: 3, title: 'Computer Vision & CNNs', topics: ['OpenCV', 'CNN Architectures', 'Image Classification', 'YOLO Object Detection'] },
-      { week: 4, title: 'Natural Language Processing & Transformers', topics: ['Tokenization', 'Attention Mechanism', 'BERT', 'LLM Fine-tuning'] }
-    ]
-  },
-  {
-    id: 'dom-3',
-    name: 'Machine Learning',
-    category: 'Data & AI',
-    iconName: 'Cpu',
-    studentsEnrolled: 160,
-    durationWeeks: 10,
-    description: 'Supervised and Unsupervised Learning algorithms, Model Optimization, and Scikit-Learn.',
-    syllabus: [
-      { week: 1, title: 'Data Preprocessing & EDA', topics: ['Pandas', 'Missing Values', 'Feature Scaling', 'Seaborn'] },
-      { week: 2, title: 'Regression & Classification', topics: ['Linear/Logistic Regression', 'Decision Trees', 'Random Forests', 'SVM'] }
+      {
+        week: 1,
+        title: 'Python for AI & Math Foundations',
+        status: 'Completed',
+        progressPercent: 100,
+        lessonsCompleted: 6,
+        totalLessons: 6,
+        topics: ['NumPy', 'Linear Algebra', 'Calculus for ML', 'Probability & Statistics', 'Vectorization'],
+        practicalProject: 'Build a NumPy matrix math library from scratch',
+        lessons: [
+          { id: 'ai-w1-l1', title: 'Vector & Matrix Operations in NumPy', duration: '40m', objectives: ['Understand dot products and matrix multiplication', 'Implement vectorized computation'], completed: true },
+          { id: 'ai-w1-l2', title: 'Calculus & Gradient Descent Essentials', duration: '45m', objectives: ['Compute partial derivatives', 'Understand optimization algorithms'], completed: true }
+        ]
+      },
+      {
+        week: 2,
+        title: 'Neural Networks & PyTorch Fundamentals',
+        status: 'In Progress',
+        progressPercent: 60,
+        lessonsCompleted: 3,
+        totalLessons: 5,
+        topics: ['Perceptrons', 'Backpropagation', 'Activation Functions', 'PyTorch Tensors', 'Autograd Engine'],
+        practicalProject: 'Train a PyTorch Multi-Layer Perceptron on MNIST dataset',
+        lessons: [
+          { id: 'ai-w2-l1', title: 'Building Neural Nets from Scratch in PyTorch', duration: '50m', objectives: ['Define custom nn.Module classes', 'Implement loss functions and optimizers'], completed: true },
+          { id: 'ai-w2-l2', title: 'Backpropagation & Autograd Graph', duration: '45m', objectives: ['Debug gradient computation', 'Prevent vanishing gradients'], completed: false }
+        ]
+      },
+      {
+        week: 3,
+        title: 'Computer Vision & CNN Architectures',
+        status: 'Not Started',
+        progressPercent: 0,
+        lessonsCompleted: 0,
+        totalLessons: 5,
+        topics: ['OpenCV', 'Convolutional Layers', 'ResNet Architecture', 'YOLO Object Detection'],
+        practicalProject: 'Build a real-time object detection model with YOLO',
+        lessons: [
+          { id: 'ai-w3-l1', title: 'CNN Convolutions & Feature Extraction', duration: '45m', objectives: ['Build 2D convolution filters', 'Apply max pooling and BatchNorm'], completed: false }
+        ]
+      },
+      {
+        week: 4,
+        title: 'Natural Language Processing & Transformers',
+        status: 'Not Started',
+        progressPercent: 0,
+        lessonsCompleted: 0,
+        totalLessons: 6,
+        topics: ['Tokenization', 'Attention Mechanism', 'BERT', 'LLM Fine-tuning with Hugging Face'],
+        practicalProject: 'Fine-tune an LLM on domain-specific customer support dataset',
+        lessons: [
+          { id: 'ai-w4-l1', title: 'Self-Attention & Transformer Architecture', duration: '55m', objectives: ['Understand query-key-value attention', 'Implement multi-head attention'], completed: false }
+        ]
+      }
     ]
   },
   {
@@ -55,47 +248,45 @@ export const INITIAL_DOMAINS: Domain[] = [
     durationWeeks: 10,
     description: 'Data wrangling, statistical analysis, interactive dashboards with Power BI and SQL.',
     syllabus: [
-      { week: 1, title: 'SQL & Relational Databases', topics: ['Joins', 'Aggregations', 'Subqueries', 'Window Functions'] },
-      { week: 2, title: 'Power BI & Visual Analytics', topics: ['DAX Formulas', 'Interactive Reports', 'Data Modeling', 'ETL Pipelines'] }
-    ]
-  },
-  {
-    id: 'dom-5',
-    name: 'Cyber Security & Ethical Hacking',
-    category: 'Security',
-    iconName: 'ShieldCheck',
-    studentsEnrolled: 115,
-    durationWeeks: 12,
-    description: 'Penetration testing, network security, web application security (OWASP Top 10), Kali Linux.',
-    syllabus: [
-      { week: 1, title: 'Networking & Linux Basics', topics: ['TCP/IP', 'Wireshark', 'Linux CLI', 'Port Scanning with Nmap'] },
-      { week: 2, title: 'Web App Pentesting', topics: ['SQL Injection', 'XSS', 'CSRF', 'Burp Suite'] }
-    ]
-  },
-  {
-    id: 'dom-6',
-    name: 'DevOps & Cloud Computing (AWS/Docker)',
-    category: 'Cloud',
-    iconName: 'Cloud',
-    studentsEnrolled: 140,
-    durationWeeks: 10,
-    description: 'Docker containers, Kubernetes, CI/CD pipelines with GitHub Actions, AWS EC2, S3, IAM.',
-    syllabus: [
-      { week: 1, title: 'Containerization with Docker', topics: ['Dockerfile', 'Docker Compose', 'Multi-stage builds', 'Volumes'] },
-      { week: 2, title: 'AWS Cloud Infrastructure', topics: ['EC2', 'S3', 'RDS', 'IAM Roles', 'VPC Setup'] }
-    ]
-  },
-  {
-    id: 'dom-7',
-    name: 'UI/UX Design & Product Strategy',
-    category: 'Design',
-    iconName: 'Layout',
-    studentsEnrolled: 175,
-    durationWeeks: 8,
-    description: 'User research, wireframing, interactive prototyping in Figma, and design systems.',
-    syllabus: [
-      { week: 1, title: 'UI Design Principles', topics: ['Typography', 'Color Theory', 'Grids & Layouts', 'Figma Basics'] },
-      { week: 2, title: 'UX Research & Prototyping', topics: ['User Personas', 'Journey Mapping', 'Interactive Prototypes', 'Usability Testing'] }
+      {
+        week: 1,
+        title: 'SQL Databases & Advanced Querying',
+        status: 'Completed',
+        progressPercent: 100,
+        lessonsCompleted: 5,
+        totalLessons: 5,
+        topics: ['SQL Joins', 'Aggregations', 'Subqueries', 'Window Functions', 'Query Optimization'],
+        practicalProject: 'Query enterprise database to produce quarterly revenue reports',
+        lessons: [
+          { id: 'ds-w1-l1', title: 'Advanced SQL Joins & Window Functions', duration: '45m', objectives: ['Master INNER/LEFT/FULL OUTER joins', 'Use OVER(), ROW_NUMBER() and RANK()'], completed: true }
+        ]
+      },
+      {
+        week: 2,
+        title: 'Pandas, Data Cleaning & Exploratory Data Analysis',
+        status: 'In Progress',
+        progressPercent: 50,
+        lessonsCompleted: 3,
+        totalLessons: 6,
+        topics: ['Pandas DataFrames', 'Missing Values', 'Outlier Detection', 'Data Wrangling'],
+        practicalProject: 'Clean and analyze a 50,000-row real estate dataset',
+        lessons: [
+          { id: 'ds-w2-l1', title: 'EDA & Feature Engineering with Pandas', duration: '40m', objectives: ['Clean null values and outliers', 'Perform group aggregations'], completed: true }
+        ]
+      },
+      {
+        week: 3,
+        title: 'Power BI, DAX & Business Dashboards',
+        status: 'Not Started',
+        progressPercent: 0,
+        lessonsCompleted: 0,
+        totalLessons: 5,
+        topics: ['DAX Formulas', 'Interactive Reports', 'Data Modeling', 'Power Query ETL'],
+        practicalProject: 'Build an executive Power BI sales dashboard',
+        lessons: [
+          { id: 'ds-w3-l1', title: 'Building Interactive Power BI Dashboards', duration: '50m', objectives: ['Connect data sources via Power Query', 'Write DAX measures for KPI metrics'], completed: false }
+        ]
+      }
     ]
   },
   {
@@ -105,65 +296,297 @@ export const INITIAL_DOMAINS: Domain[] = [
     iconName: 'Coffee',
     studentsEnrolled: 195,
     durationWeeks: 12,
-    description: 'Java 21, Spring Boot, Microservices, Hibernate ORM, and React Frontend integration.',
+    description: 'Java 21, Spring Boot 3, Microservices, Hibernate ORM, and React Frontend integration.',
     syllabus: [
-      { week: 1, title: 'Core Java & OOPs', topics: ['Classes & Objects', 'Inheritance', 'Polymorphism', 'Collections Framework'] },
-      { week: 2, title: 'Spring Boot REST APIs', topics: ['Spring MVC', 'Spring Data JPA', 'Security', 'Microservices Architecture'] }
+      {
+        week: 1,
+        title: 'Core Java 21 & OOPs Principles',
+        status: 'Completed',
+        progressPercent: 100,
+        lessonsCompleted: 6,
+        totalLessons: 6,
+        topics: ['Classes & Objects', 'Inheritance & Polymorphism', 'Collections Framework', 'Lambdas & Streams'],
+        practicalProject: 'Build a Java Command-Line Bank Management System',
+        lessons: [
+          { id: 'jav-w1-l1', title: 'Java 21 Virtual Threads & Modern Features', duration: '40m', objectives: ['Understand OOPs principles', 'Master Streams API and Records'], completed: true }
+        ]
+      },
+      {
+        week: 2,
+        title: 'Spring Boot 3 REST APIs & Spring Data JPA',
+        status: 'In Progress',
+        progressPercent: 50,
+        lessonsCompleted: 3,
+        totalLessons: 6,
+        topics: ['Spring MVC Architecture', 'Dependency Injection', 'Spring Data JPA & Hibernate', 'REST Endpoints'],
+        practicalProject: 'Build a Spring Boot REST API for E-Commerce Catalog',
+        lessons: [
+          { id: 'jav-w2-l1', title: 'Spring Boot Controllers & Spring Data JPA', duration: '50m', objectives: ['Create REST controllers', 'Map database entities using JPA annotations'], completed: true }
+        ]
+      }
     ]
   },
   {
-    id: 'dom-9',
-    name: 'Python Full Stack Development',
-    category: 'Software Engineering',
-    iconName: 'Terminal',
+    id: 'dom-web',
+    name: 'Web Development',
+    category: 'Web Development',
+    iconName: 'Layout',
     studentsEnrolled: 220,
     durationWeeks: 12,
-    description: 'Python 3, Django, FastAPI, PostgreSQL, and modern React dashboard building.',
+    description: 'Modern web development with HTML5, CSS3 Grid, JavaScript ES6+, React, and Responsive Web Design.',
     syllabus: [
-      { week: 1, title: 'Python Advanced', topics: ['Decorators', 'Generators', 'OOPs', 'Virtual Environments'] },
-      { week: 2, title: 'Django & FastAPI', topics: ['ORM', 'REST Framework', 'Pydantic', 'Async Endpoints'] }
+      {
+        week: 1,
+        title: 'HTML5 Semantic Web & Modern CSS3',
+        status: 'Completed',
+        progressPercent: 100,
+        lessonsCompleted: 6,
+        totalLessons: 6,
+        topics: ['Semantic HTML', 'CSS Flexbox', 'CSS Grid', 'Media Queries & Responsive Design'],
+        practicalProject: 'Build a multi-page responsive corporate website',
+        lessons: [
+          { id: 'web-w1-l1', title: 'HTML5 Layouts & Modern CSS Grid', duration: '35m', objectives: ['Build fluid layouts', 'Implement accessible HTML markup'], completed: true }
+        ]
+      },
+      {
+        week: 2,
+        title: 'JavaScript DOM & Interactive Web Pages',
+        status: 'In Progress',
+        progressPercent: 60,
+        lessonsCompleted: 4,
+        totalLessons: 6,
+        topics: ['DOM Events', 'Form Validation', 'Local Storage', 'Fetch API Integration'],
+        practicalProject: 'Build an interactive web task tracker',
+        lessons: [
+          { id: 'web-w2-l1', title: 'DOM Manipulation & Dynamic Rendering', duration: '40m', objectives: ['Bind event listeners', 'Store user preferences in LocalStorage'], completed: true }
+        ]
+      }
     ]
   },
   {
-    id: 'dom-10',
-    name: 'Flutter & Mobile App Development',
-    category: 'Mobile',
-    iconName: 'Smartphone',
-    studentsEnrolled: 130,
-    durationWeeks: 10,
-    description: 'Build cross-platform iOS and Android apps with Dart, Flutter, and Firebase backend.',
-    syllabus: [
-      { week: 1, title: 'Dart Programming', topics: ['Syntax', 'Functions', 'Async/Await', 'Classes'] },
-      { week: 2, title: 'Flutter UI Components', topics: ['Widgets', 'Stateful/Stateless', 'Provider/Bloc', 'REST APIs'] }
-    ]
-  },
-  {
-    id: 'dom-11',
-    name: 'Digital Marketing & Growth Hacking',
-    category: 'Business',
-    iconName: 'TrendingUp',
-    studentsEnrolled: 98,
-    durationWeeks: 8,
-    description: 'SEO, Google Ads, Meta Ads, Social Media Marketing, Analytics, and Content Strategy.',
-    syllabus: [
-      { week: 1, title: 'SEO & Keyword Strategy', topics: ['On-Page SEO', 'Off-Page SEO', 'Technical SEO', 'Google Search Console'] },
-      { week: 2, title: 'Performance Marketing', topics: ['Google Ads', 'Meta Ad Manager', 'ROAS Optimization', 'A/B Testing'] }
-    ]
-  },
-  {
-    id: 'dom-12',
-    name: 'C++ & Data Structures & Algorithms',
-    category: 'Core CS',
-    iconName: 'Binary',
-    studentsEnrolled: 180,
+    id: 'dom-python',
+    name: 'Python Development',
+    category: 'Software Engineering',
+    iconName: 'Terminal',
+    studentsEnrolled: 175,
     durationWeeks: 12,
-    description: 'Master Data Structures (Trees, Graphs, Dynamic Programming) and C++ Standard Template Library (STL).',
+    description: 'Master Python 3.12, Django 5, FastAPI, PostgreSQL, and Automated Testing.',
     syllabus: [
-      { week: 1, title: 'C++ Basics & Memory Management', topics: ['Pointers', 'References', 'Pointers to Functions', 'Dynamic Memory'] },
-      { week: 2, title: 'Advanced DSA', topics: ['Trees & BST', 'Graph Algorithms (Dijkstra, BFS/DFS)', 'Dynamic Programming'] }
+      {
+        week: 1,
+        title: 'Python Core Essentials & OOP',
+        status: 'Completed',
+        progressPercent: 100,
+        lessonsCompleted: 6,
+        totalLessons: 6,
+        topics: ['Data Structures', 'Functions & Generators', 'OOP Classes', 'File I/O & Modules'],
+        practicalProject: 'Build a Python File Management CLI Tool',
+        lessons: [
+          { id: 'py-w1-l1', title: 'Object Oriented Programming in Python 3.12', duration: '40m', objectives: ['Implement dunder methods and inheritance', 'Use decorators and generators'], completed: true }
+        ]
+      },
+      {
+        week: 2,
+        title: 'FastAPI & Production REST Services',
+        status: 'In Progress',
+        progressPercent: 50,
+        lessonsCompleted: 3,
+        totalLessons: 6,
+        topics: ['AsyncIO', 'Pydantic Schemas', 'Swagger Docs', 'SQLAlchemy ORM'],
+        practicalProject: 'Build an Async FastAPI Microservice with PostgreSQL',
+        lessons: [
+          { id: 'py-w2-l1', title: 'Async Microservices with FastAPI & Pydantic', duration: '45m', objectives: ['Write async request handlers', 'Validate payloads with Pydantic v2'], completed: true }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'dom-app',
+    name: 'Mobile & Flutter App Development',
+    category: 'Mobile Development',
+    iconName: 'Smartphone',
+    studentsEnrolled: 160,
+    durationWeeks: 12,
+    description: 'Cross-platform iOS and Android mobile apps using Dart, Flutter 3, Firebase, and BLoC State Management.',
+    syllabus: [
+      {
+        week: 1,
+        title: 'Dart Programming & Flutter Widgets',
+        status: 'Completed',
+        progressPercent: 100,
+        lessonsCompleted: 5,
+        totalLessons: 5,
+        topics: ['Dart Syntax', 'Stateless vs Stateful Widgets', 'Layout Widgets', 'Material Design 3'],
+        practicalProject: 'Build a Cross-Platform Expense Tracker App',
+        lessons: [
+          { id: 'flt-w1-l1', title: 'Flutter 3 UI Tree & Custom Widgets', duration: '45m', objectives: ['Build responsive mobile screens', 'Handle touch gestures and state'], completed: true }
+        ]
+      },
+      {
+        week: 2,
+        title: 'Flutter BLoC State Management & REST APIs',
+        status: 'In Progress',
+        progressPercent: 40,
+        lessonsCompleted: 2,
+        totalLessons: 5,
+        topics: ['BLoC Pattern', 'Cubit', 'Dio HTTP Client', 'JSON Serialization'],
+        practicalProject: 'Build a News Reader App with live REST API integration',
+        lessons: [
+          { id: 'flt-w2-l1', title: 'State Sync with BLoC & RxDart', duration: '50m', objectives: ['Separate UI from business logic', 'Emit immutable UI states'], completed: false }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'dom-dataeng',
+    name: 'Data Engineering',
+    category: 'Data & AI',
+    iconName: 'Database',
+    studentsEnrolled: 140,
+    durationWeeks: 12,
+    description: 'Big Data Pipelines, Apache Spark, Airflow DAGs, Snowflake Data Warehouse, and Kafka Streaming.',
+    syllabus: [
+      {
+        week: 1,
+        title: 'Distributed Systems & Apache Spark',
+        status: 'Completed',
+        progressPercent: 100,
+        lessonsCompleted: 5,
+        totalLessons: 5,
+        topics: ['PySpark DataFrames', 'Spark RDDs', 'Partitioning', 'ETL Pipelines'],
+        practicalProject: 'Process 10 Million Records using PySpark on Databricks',
+        lessons: [
+          { id: 'de-w1-l1', title: 'PySpark Distributed Data Processing', duration: '50m', objectives: ['Optimize Spark shuffles and partitions', 'Perform distributed aggregations'], completed: true }
+        ]
+      },
+      {
+        week: 2,
+        title: 'Workflow Automation with Apache Airflow',
+        status: 'In Progress',
+        progressPercent: 50,
+        lessonsCompleted: 3,
+        totalLessons: 6,
+        topics: ['DAG Creation', 'Airflow Operators', 'XComs', 'Task Scheduling'],
+        practicalProject: 'Build an automated ETL pipeline with Apache Airflow',
+        lessons: [
+          { id: 'de-w2-l1', title: 'Airflow DAG Architecture & Task Dependencies', duration: '45m', objectives: ['Design resilient DAG workflows', 'Monitor pipeline execution'], completed: true }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'dom-uiux',
+    name: 'UI/UX Design & Product Strategy',
+    category: 'Design & Strategy',
+    iconName: 'Figma',
+    studentsEnrolled: 185,
+    durationWeeks: 10,
+    description: 'Figma Auto-Layout, Wireframing, High-Fidelity Prototyping, Usability Testing, and Design Systems.',
+    syllabus: [
+      {
+        week: 1,
+        title: 'UX Research, Personas & Information Architecture',
+        status: 'Completed',
+        progressPercent: 100,
+        lessonsCompleted: 5,
+        totalLessons: 5,
+        topics: ['User Personas', 'User Journey Mapping', 'Information Architecture', 'Wireframing'],
+        practicalProject: 'Create User Flow & Wireframes for a FinTech Mobile App',
+        lessons: [
+          { id: 'ux-w1-l1', title: 'UX Research & User Persona Crafting', duration: '40m', objectives: ['Conduct user interviews', 'Map end-to-end user journeys'], completed: true }
+        ]
+      },
+      {
+        week: 2,
+        title: 'Figma Auto-Layout & Design Tokens',
+        status: 'In Progress',
+        progressPercent: 70,
+        lessonsCompleted: 4,
+        totalLessons: 6,
+        topics: ['Auto-Layout 5.0', 'Variants', 'Design System Tokens', 'Interactive Components'],
+        practicalProject: 'Build a Design System in Figma with 50+ Component Variants',
+        lessons: [
+          { id: 'ux-w2-l1', title: 'Mastering Figma Auto-Layout & Variants', duration: '50m', objectives: ['Create responsive component variants', 'Tokenize colors and typography'], completed: true }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'dom-cloud',
+    name: 'DevOps & Cloud Computing (AWS/Docker)',
+    category: 'Cloud & Infrastructure',
+    iconName: 'Cloud',
+    studentsEnrolled: 230,
+    durationWeeks: 12,
+    description: 'AWS Cloud Services, Docker Containerization, Kubernetes, Terraform IaC, and GitHub Actions CI/CD.',
+    syllabus: [
+      {
+        week: 1,
+        title: 'Docker Containerization Masterclass',
+        status: 'Completed',
+        progressPercent: 100,
+        lessonsCompleted: 6,
+        totalLessons: 6,
+        topics: ['Dockerfiles', 'Image Optimization', 'Docker Compose', 'Container Networking'],
+        practicalProject: 'Containerize a Multi-Container Full-Stack Application with Docker Compose',
+        lessons: [
+          { id: 'cld-w1-l1', title: 'Writing Multi-Stage Production Dockerfiles', duration: '45m', objectives: ['Minimize image sizes', 'Configure environment variables'], completed: true }
+        ]
+      },
+      {
+        week: 2,
+        title: 'AWS Core Services & Infrastructure',
+        status: 'In Progress',
+        progressPercent: 50,
+        lessonsCompleted: 3,
+        totalLessons: 6,
+        topics: ['AWS EC2', 'S3 Buckets', 'VPC Subnets', 'IAM Security Policies', 'Route 53'],
+        practicalProject: 'Deploy a resilient AWS EC2 + S3 infrastructure with IAM permissions',
+        lessons: [
+          { id: 'cld-w2-l1', title: 'AWS EC2, VPC & Security Group Setup', duration: '50m', objectives: ['Provision VPC subnets', 'Configure SSH and security groups'], completed: true }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'dom-cyber',
+    name: 'Cyber Security & Ethical Hacking',
+    category: 'Security',
+    iconName: 'ShieldAlert',
+    studentsEnrolled: 155,
+    durationWeeks: 12,
+    description: 'Penetration Testing, OWASP Top 10, Network Security, Wireshark Packet Analysis, and Cryptography.',
+    syllabus: [
+      {
+        week: 1,
+        title: 'Network Security & Wireshark Packet Analysis',
+        status: 'Completed',
+        progressPercent: 100,
+        lessonsCompleted: 5,
+        totalLessons: 5,
+        topics: ['TCP/IP Protocol Stack', 'Wireshark Filtering', 'Port Scanning with Nmap', 'DNS Vulnerabilities'],
+        practicalProject: 'Perform Network Traffic Analysis & Identify Malicious Packets in Wireshark',
+        lessons: [
+          { id: 'cy-w1-l1', title: 'Network Reconnaissance with Nmap & Wireshark', duration: '45m', objectives: ['Scan network ports safely', 'Analyze packet captures'], completed: true }
+        ]
+      },
+      {
+        week: 2,
+        title: 'Web Application Security & OWASP Top 10',
+        status: 'In Progress',
+        progressPercent: 60,
+        lessonsCompleted: 3,
+        totalLessons: 5,
+        topics: ['SQL Injection', 'Cross-Site Scripting (XSS)', 'CSRF Attacks', 'Burp Suite'],
+        practicalProject: 'Penetration Test a vulnerable web application using Burp Suite',
+        lessons: [
+          { id: 'cy-w2-l1', title: 'Exploiting & Patching OWASP Vulnerabilities', duration: '50m', objectives: ['Test for SQLi and XSS', 'Implement input sanitization'], completed: true }
+        ]
+      }
     ]
   }
 ];
+
 
 export const INITIAL_STUDENTS: Student[] = [
   {
@@ -584,48 +1007,253 @@ export const INITIAL_JOBS: JobPosting[] = [
   }
 ];
 
-export const SAMPLE_QUIZ: Quiz = {
-  id: 'qz-101',
-  title: 'MERN Stack & React 19 Core Concepts Assessment',
-  domain: 'MERN Stack Development',
-  durationMinutes: 15,
-  totalQuestions: 4,
-  questions: [
-    {
-      id: 'q1',
-      question: 'Which Hook in React 19 is primarily used for asynchronous data fetching directly in server components or with suspense?',
-      options: ['useAsync', 'use', 'useFetch', 'useEffectServer'],
-      correctAnswer: 1,
-      explanation: 'React 19 introduced the `use` API to read values of promises or contexts directly during render.'
-    },
-    {
-      id: 'q2',
-      question: 'In MongoDB Mongoose, which method is used to populate reference documents across collections?',
-      options: ['join()', 'aggregate()', 'populate()', 'lookup()'],
-      correctAnswer: 2,
-      explanation: '`populate()` lets you reference documents in other collections using ObjectIds.'
-    },
-    {
-      id: 'q3',
-      question: 'What status code should an Express REST API return upon successful creation of a new resource (e.g. POST /api/students)?',
-      options: ['200 OK', '201 Created', '204 No Content', '302 Found'],
-      correctAnswer: 1,
-      explanation: 'HTTP Status 201 Created signifies that the request succeeded and led to creation of a resource.'
-    },
-    {
-      id: 'q4',
-      question: 'What is the purpose of JWT Refresh Tokens in Enterprise Authentication?',
-      options: [
-        'To encrypt user passwords in database',
-        'To obtain a new short-lived Access Token without re-authenticating user credentials',
-        'To compress HTTP header payload size',
-        'To block CORS cross-origin requests'
-      ],
-      correctAnswer: 1,
-      explanation: 'Refresh tokens allow seamless token renewal without forcing the user to log in again.'
-    }
-  ]
-};
+export const INITIAL_QUIZZES: Quiz[] = [
+  {
+    id: 'qz-101',
+    title: 'MERN Stack & React 19 Core Concepts',
+    domain: 'MERN Stack Development',
+    category: 'React',
+    difficulty: 'Intermediate',
+    durationMinutes: 15,
+    totalQuestions: 4,
+    totalMarks: 100,
+    xpReward: 10,
+    status: 'In Progress',
+    questionsAnswered: 2,
+    progressPercent: 50,
+    questions: [
+      {
+        id: 'q1',
+        question: 'Which Hook in React 19 is primarily used for asynchronous data fetching directly in server components or with suspense?',
+        options: ['useAsync', 'use', 'useFetch', 'useEffectServer'],
+        correctAnswer: 1,
+        explanation: 'React 19 introduced the `use` API to read values of promises or contexts directly during render.'
+      },
+      {
+        id: 'q2',
+        question: 'In MongoDB Mongoose, which method is used to populate reference documents across collections?',
+        options: ['join()', 'aggregate()', 'populate()', 'lookup()'],
+        correctAnswer: 2,
+        explanation: '`populate()` lets you reference documents in other collections using ObjectIds.'
+      },
+      {
+        id: 'q3',
+        question: 'What status code should an Express REST API return upon successful creation of a new resource (e.g. POST /api/students)?',
+        options: ['200 OK', '201 Created', '204 No Content', '302 Found'],
+        correctAnswer: 1,
+        explanation: 'HTTP Status 201 Created signifies that the request succeeded and led to creation of a resource.'
+      },
+      {
+        id: 'q4',
+        question: 'What is the purpose of JWT Refresh Tokens in Enterprise Authentication?',
+        options: [
+          'To encrypt user passwords in database',
+          'To obtain a new short-lived Access Token without re-authenticating user credentials',
+          'To compress HTTP header payload size',
+          'To block CORS cross-origin requests'
+        ],
+        correctAnswer: 1,
+        explanation: 'Refresh tokens allow seamless token renewal without forcing the user to log in again.'
+      }
+    ]
+  },
+  {
+    id: 'qz-102',
+    title: 'JavaScript Fundamentals & ES6+ Mastery',
+    domain: 'MERN Stack Development',
+    category: 'JavaScript',
+    difficulty: 'Beginner',
+    durationMinutes: 12,
+    totalQuestions: 4,
+    totalMarks: 100,
+    xpReward: 10,
+    status: 'Completed',
+    questionsAnswered: 4,
+    progressPercent: 100,
+    bestScore: 90,
+    questions: [
+      {
+        id: 'js-q1',
+        question: 'What will `typeof NaN` evaluate to in JavaScript?',
+        options: ['number', 'nan', 'undefined', 'object'],
+        correctAnswer: 0,
+        explanation: 'In JavaScript, NaN (Not-a-Number) is technically considered a number type.'
+      },
+      {
+        id: 'js-q2',
+        question: 'Which ES6 feature allows unpacking values from arrays or properties from objects?',
+        options: ['Spread operator', 'Destructuring assignment', 'Rest parameters', 'Template literals'],
+        correctAnswer: 1,
+        explanation: 'Destructuring assignment allows extracting properties from objects into variables.'
+      },
+      {
+        id: 'js-q3',
+        question: 'What is the key difference between `let` and `var` declaration in JavaScript?',
+        options: ['let is block-scoped, var is function-scoped', 'var cannot be re-assigned', 'let is hoisted to global window object', 'There is no difference'],
+        correctAnswer: 0,
+        explanation: '`let` and `const` create block-scoped variables, whereas `var` is function-scoped.'
+      },
+      {
+        id: 'js-q4',
+        question: 'How do you create a resolved Promise in JavaScript?',
+        options: ['Promise.fulfill()', 'Promise.resolve(data)', 'new Promise().complete()', 'Promise.done()'],
+        correctAnswer: 1,
+        explanation: '`Promise.resolve(value)` returns a Promise object that is resolved with the given value.'
+      }
+    ]
+  },
+  {
+    id: 'qz-103',
+    title: 'Node.js, Express REST APIs & Auth',
+    domain: 'MERN Stack Development',
+    category: 'Node.js & Express',
+    difficulty: 'Intermediate',
+    durationMinutes: 15,
+    totalQuestions: 3,
+    totalMarks: 100,
+    xpReward: 15,
+    status: 'Not Started',
+    progressPercent: 0,
+    questionsAnswered: 0,
+    questions: [
+      {
+        id: 'nd-1',
+        question: 'Which built-in Node.js module handles file system operations like reading or writing files?',
+        options: ['path', 'fs', 'http', 'os'],
+        correctAnswer: 1,
+        explanation: 'The `fs` (File System) module allows interacting with the file system.'
+      },
+      {
+        id: 'nd-2',
+        question: 'What is Express Middleware in Node.js backend development?',
+        options: ['A database ORM', 'Functions that access the request object (req), response object (res), and next middleware', 'A frontend template compiler', 'A deployment server tool'],
+        correctAnswer: 1,
+        explanation: 'Middleware functions execute during the request-response cycle and call next() to pass control.'
+      },
+      {
+        id: 'nd-3',
+        question: 'Which HTTP method should be used to partially update an existing entity?',
+        options: ['PUT', 'PATCH', 'POST', 'DELETE'],
+        correctAnswer: 1,
+        explanation: 'HTTP PATCH is used for partial modifications, while PUT usually replaces the entire resource.'
+      }
+    ]
+  },
+  {
+    id: 'qz-104',
+    title: 'MongoDB Schema & Aggregation Pipeline',
+    domain: 'MERN Stack Development',
+    category: 'MongoDB',
+    difficulty: 'Advanced',
+    durationMinutes: 20,
+    totalQuestions: 3,
+    totalMarks: 100,
+    xpReward: 20,
+    status: 'Locked',
+    prerequisiteTitle: 'MERN Stack & React 19 Core Concepts',
+    progressPercent: 0,
+    questionsAnswered: 0,
+    questions: [
+      {
+        id: 'mg-1',
+        question: 'Which aggregation pipeline stage is used to filter documents in MongoDB?',
+        options: ['$match', '$group', '$project', '$lookup'],
+        correctAnswer: 0,
+        explanation: '`$match` filters documents to pass only specified documents to the next stage.'
+      },
+      {
+        id: 'mg-2',
+        question: 'In Mongoose schemas, what option ensures that a field value is unique across all documents?',
+        options: ['unique: true', 'primaryKey: true', 'indexOnly: true', 'distinct: true'],
+        correctAnswer: 0,
+        explanation: 'Setting `unique: true` creates a unique index in MongoDB.'
+      },
+      {
+        id: 'mg-3',
+        question: 'Which stage performs an left outer join to an unsharded collection in the same database?',
+        options: ['$join', '$lookup', '$foreignKey', '$merge'],
+        correctAnswer: 1,
+        explanation: '`$lookup` performs a left outer join to fetch related documents from another collection.'
+      }
+    ]
+  },
+  {
+    id: 'qz-201',
+    title: 'Python for AI & PyTorch Neural Networks',
+    domain: 'AI & Machine Learning',
+    category: 'PyTorch & Neural Networks',
+    difficulty: 'Intermediate',
+    durationMinutes: 15,
+    totalQuestions: 3,
+    totalMarks: 100,
+    xpReward: 15,
+    status: 'Not Started',
+    questionsAnswered: 0,
+    progressPercent: 0,
+    questions: [
+      {
+        id: 'ai-1',
+        question: 'In PyTorch, which method computes the gradient of current tensor w.r.t. graph leaves?',
+        options: ['tensor.backward()', 'tensor.grad()', 'torch.step()', 'tensor.evaluate()'],
+        correctAnswer: 0,
+        explanation: 'Calling `backward()` computes the gradients automatically via autograd.'
+      },
+      {
+        id: 'ai-2',
+        question: 'Which activation function is most commonly used in hidden layers of Deep Neural Networks to mitigate vanishing gradients?',
+        options: ['Sigmoid', 'Tanh', 'ReLU (Rectified Linear Unit)', 'Linear'],
+        correctAnswer: 2,
+        explanation: 'ReLU helps prevent vanishing gradients for positive inputs during backpropagation.'
+      },
+      {
+        id: 'ai-3',
+        question: 'What is the purpose of DataLoader in PyTorch?',
+        options: ['To compile Python code to CUDA', 'To provide an iterable over a dataset with batching, shuffling, and multi-processing', 'To convert model weights to ONNX', 'To clear GPU memory'],
+        correctAnswer: 1,
+        explanation: 'PyTorch DataLoader manages data batching, shuffling, and parallel loading.'
+      }
+    ]
+  },
+  {
+    id: 'qz-301',
+    title: 'Pandas & Exploratory Data Analysis',
+    domain: 'Data Science',
+    category: 'Data Analysis',
+    difficulty: 'Beginner',
+    durationMinutes: 15,
+    totalQuestions: 3,
+    totalMarks: 100,
+    xpReward: 10,
+    status: 'Not Started',
+    questionsAnswered: 0,
+    progressPercent: 0,
+    questions: [
+      {
+        id: 'ds-1',
+        question: 'In Pandas, which method returns summary statistics for numerical columns in a DataFrame?',
+        options: ['df.info()', 'df.describe()', 'df.summary()', 'df.head()'],
+        correctAnswer: 1,
+        explanation: '`df.describe()` calculates mean, std, min, max, and quartiles.'
+      },
+      {
+        id: 'ds-2',
+        question: 'Which function reads a comma-separated values (CSV) file into a Pandas DataFrame?',
+        options: ['pd.read_csv()', 'pd.load_csv()', 'pd.open_csv()', 'pd.import_csv()'],
+        correctAnswer: 0,
+        explanation: '`pd.read_csv("file.csv")` imports CSV files into DataFrames.'
+      },
+      {
+        id: 'ds-3',
+        question: 'How do you handle missing (NaN) values by dropping rows in Pandas?',
+        options: ['df.drop_null()', 'df.dropna()', 'df.remove_nan()', 'df.clean()'],
+        correctAnswer: 1,
+        explanation: '`df.dropna()` removes rows containing missing values.'
+      }
+    ]
+  }
+];
+
+export const SAMPLE_QUIZ: Quiz = INITIAL_QUIZZES[0];
 
 export const ANALYTICS_GRAPH_DATA = [
   { month: 'Jan', enrollment: 320, revenue: 12.5, attendance: 92 },

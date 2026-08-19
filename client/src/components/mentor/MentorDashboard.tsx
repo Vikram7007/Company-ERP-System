@@ -30,7 +30,8 @@ import {
   ChevronDown,
   Download,
   Calendar,
-  FileText as FileTextIcon
+  FileText as FileTextIcon,
+  Play
 } from 'lucide-react';
 import { INITIAL_LIVE_CLASSES, INITIAL_ASSIGNMENTS, INITIAL_LECTURES } from '../../data/mockData';
 import { Student, Assignment, StudentApplication } from '../../types';
@@ -78,9 +79,64 @@ export const MentorDashboard: React.FC = () => {
 
   const [appSearch, setAppSearch] = useState('');
 
-  // New Note Uploader State
-  const [newNote, setNewNote] = useState({ title: '', domain: 'MERN Stack Development', week: 5, link: '' });
-  
+  // New Note / Video Uploader State
+  const [noteSourceType, setNoteSourceType] = useState<'file' | 'url'>('file');
+  const [newNote, setNewNote] = useState({ 
+    title: '', 
+    domain: 'MERN Stack Development', 
+    week: 5, 
+    link: '',
+    fileUrl: '',
+    fileName: '',
+    fileSize: '',
+    duration: '45m',
+    pdfNotesName: ''
+  });
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [isDraggingVideo, setIsDraggingVideo] = useState(false);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+  const [playingMentorVideo, setPlayingMentorVideo] = useState<string | null>(null);
+  const [mentorVideoSearch, setMentorVideoSearch] = useState('');
+  const [mentorVideoWeekFilter, setMentorVideoWeekFilter] = useState('All');
+  const [mentorVideoPage, setMentorVideoPage] = useState(1);
+  const mentorVideosPerPage = 6;
+
+  // Auto-detect video duration and set local preview URL from laptop video file
+  const handleVideoFileSelect = (file: File) => {
+    if (!file) return;
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+    const fileSizeStr = `${sizeMb} MB`;
+    const previewUrl = URL.createObjectURL(file);
+
+    setVideoFile(file);
+    setVideoPreviewUrl(previewUrl);
+
+    const tempVideo = document.createElement('video');
+    tempVideo.preload = 'metadata';
+    tempVideo.src = previewUrl;
+    tempVideo.onloadedmetadata = () => {
+      const durationSeconds = Math.round(tempVideo.duration);
+      const mins = Math.floor(durationSeconds / 60);
+      const secs = durationSeconds % 60;
+      const formattedDuration = mins > 0 ? `${mins}m ${secs > 0 ? secs + 's' : ''}` : `${secs}s`;
+      setNewNote(prev => ({
+        ...prev,
+        fileUrl: previewUrl,
+        fileName: file.name,
+        fileSize: fileSizeStr,
+        duration: formattedDuration || '45m'
+      }));
+    };
+    tempVideo.onerror = () => {
+      setNewNote(prev => ({
+        ...prev,
+        fileUrl: previewUrl,
+        fileName: file.name,
+        fileSize: fileSizeStr
+      }));
+    };
+  };
+
   // New Live Class State
   const [newLiveClass, setNewLiveClass] = useState({ title: '', domain: 'MERN Stack Development', batch: 'Batch W-2026-A', date: '', time: '', durationMinutes: 60, meetingPlatform: 'Zoom' as const, meetingUrl: '' });
 
@@ -154,16 +210,34 @@ export const MentorDashboard: React.FC = () => {
 
   const handleUploadNote = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const finalVideoUrl = noteSourceType === 'file' 
+      ? (videoPreviewUrl || newNote.fileUrl || 'https://www.w3schools.com/html/mov_bbb.mp4')
+      : (newNote.link || 'https://www.w3schools.com/html/mov_bbb.mp4');
+
     addRecordedLecture({
       title: newNote.title,
       domain: newNote.domain,
       week: newNote.week,
-      videoUrl: newNote.link || '',
+      videoUrl: finalVideoUrl,
       thumbnailUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80',
-      duration: '45m',
-      pdfNotesUrl: newNote.link || '#'
+      duration: newNote.duration || '45m',
+      pdfNotesUrl: newNote.pdfNotesName ? `#notes-${newNote.pdfNotesName}` : '#'
     });
-    setNewNote({ title: '', domain: 'MERN Stack Development', week: 5, link: '' });
+
+    setNewNote({ 
+      title: '', 
+      domain: 'MERN Stack Development', 
+      week: 5, 
+      link: '', 
+      fileUrl: '', 
+      fileName: '', 
+      fileSize: '', 
+      duration: '45m',
+      pdfNotesName: '' 
+    });
+    setVideoFile(null);
+    setVideoPreviewUrl(null);
     setShowUploadModal(false);
   };
 
@@ -973,19 +1047,140 @@ export const MentorDashboard: React.FC = () => {
               </div>
             )}
 
-            <h3 className="text-base font-bold text-slate-900">Published Study Materials ({recordedLectures.length})</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {recordedLectures.map((lec) => (
-                <div key={lec.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex space-x-3 items-center">
-                  <div className="w-16 h-12 rounded-xl bg-orange-500 text-white flex items-center justify-center flex-shrink-0 font-bold text-xs">
-                    Week {lec.week}
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-900 text-xs">{lec.title}</h4>
-                    <p className="text-[11px] text-slate-500 mt-0.5">{lec.domain} • Duration: {lec.duration}</p>
-                  </div>
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 flex items-center space-x-2">
+                    <Play className="w-4 h-4 text-orange-500 fill-orange-500" />
+                    <span>Published Study Materials & Video Lectures</span>
+                    <span className="text-xs bg-orange-100 text-orange-800 font-extrabold px-2.5 py-0.5 rounded-full border border-orange-200">
+                      {recordedLectures.length} total
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">Manage and preview all course materials published to student portals</p>
                 </div>
-              ))}
+
+                {/* Search Box */}
+                <div className="relative w-full md:w-64">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search published videos..."
+                    value={mentorVideoSearch}
+                    onChange={(e) => {
+                      setMentorVideoSearch(e.target.value);
+                      setMentorVideoPage(1);
+                    }}
+                    className="w-full pl-9 pr-7 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-slate-900 placeholder:text-slate-400"
+                  />
+                  {mentorVideoSearch && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMentorVideoSearch('');
+                        setMentorVideoPage(1);
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {recordedLectures.length === 0 ? (
+                <div className="text-center py-10 bg-slate-50 rounded-2xl border border-slate-200">
+                  <Video className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                  <p className="text-xs font-bold text-slate-500">No study materials published yet</p>
+                </div>
+              ) : (() => {
+                const filtered = recordedLectures.filter((lec) => {
+                  const matchesSearch = 
+                    lec.title.toLowerCase().includes(mentorVideoSearch.toLowerCase()) || 
+                    lec.domain.toLowerCase().includes(mentorVideoSearch.toLowerCase()) ||
+                    `week ${lec.week}`.toLowerCase().includes(mentorVideoSearch.toLowerCase());
+                  const matchesWeek = mentorVideoWeekFilter === 'All' || lec.week.toString() === mentorVideoWeekFilter;
+                  return matchesSearch && matchesWeek;
+                });
+
+                const totalPages = Math.ceil(filtered.length / mentorVideosPerPage) || 1;
+                const currentPage = Math.min(mentorVideoPage, totalPages);
+                const paginated = filtered.slice(
+                  (currentPage - 1) * mentorVideosPerPage,
+                  currentPage * mentorVideosPerPage
+                );
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="text-center py-8 bg-orange-50/30 rounded-2xl border border-orange-100 p-4">
+                      <p className="text-xs font-bold text-slate-700">No published materials match "{mentorVideoSearch}"</p>
+                      <button
+                        type="button"
+                        onClick={() => { setMentorVideoSearch(''); setMentorVideoWeekFilter('All'); setMentorVideoPage(1); }}
+                        className="mt-2 text-xs font-extrabold text-orange-600 underline"
+                      >
+                        Reset Search Filters
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {paginated.map((lec) => (
+                        <div key={lec.id} className="p-4 bg-slate-50 hover:bg-white rounded-2xl border border-slate-200 hover:border-orange-300 flex justify-between items-center group transition-all shadow-2xs">
+                          <div className="flex space-x-3 items-center">
+                            <div className="w-14 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 text-white flex items-center justify-center flex-shrink-0 font-black text-xs shadow-sm">
+                              Week {lec.week}
+                            </div>
+                            <div className="max-w-[200px] sm:max-w-[280px]">
+                              <h4 className="font-bold text-slate-900 text-xs group-hover:text-orange-600 transition-colors line-clamp-1">{lec.title}</h4>
+                              <p className="text-[11px] text-slate-500 mt-0.5">{lec.domain} • Duration: {lec.duration}</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setPlayingMentorVideo(lec.videoUrl)}
+                            className="px-3 py-1.5 bg-orange-100 hover:bg-orange-200 text-orange-800 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 whitespace-nowrap active:scale-95 shadow-2xs"
+                          >
+                            <Play className="w-3.5 h-3.5 fill-orange-700 text-orange-700" />
+                            <span>Watch</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Pagination Bar */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                        <p className="text-xs font-bold text-slate-500">
+                          Showing {(currentPage - 1) * mentorVideosPerPage + 1} - {Math.min(currentPage * mentorVideosPerPage, filtered.length)} of {filtered.length}
+                        </p>
+                        <div className="flex items-center space-x-1">
+                          <button
+                            type="button"
+                            onClick={() => setMentorVideoPage(prev => Math.max(prev - 1, 1))}
+                            disabled={currentPage === 1}
+                            className="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 disabled:opacity-40"
+                          >
+                            Prev
+                          </button>
+                          <span className="text-xs font-bold px-2 text-slate-700">{currentPage} / {totalPages}</span>
+                          <button
+                            type="button"
+                            onClick={() => setMentorVideoPage(prev => Math.min(prev + 1, totalPages))}
+                            disabled={currentPage === totalPages}
+                            className="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 disabled:opacity-40"
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -1264,8 +1459,8 @@ export const MentorDashboard: React.FC = () => {
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
             onClick={() => setShowUploadModal(false)}
           ></div>
-          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="bg-orange-500 p-6 text-white flex justify-between items-center relative overflow-hidden">
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-gradient-to-r from-orange-500 to-amber-500 p-6 text-white flex justify-between items-center relative overflow-hidden">
               <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
               <div className="flex items-center space-x-3 relative z-10">
                 <div className="w-10 h-10 bg-white/20 rounded-2xl backdrop-blur-md flex items-center justify-center border border-white/30 shadow-inner">
@@ -1273,7 +1468,7 @@ export const MentorDashboard: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="font-black text-lg drop-shadow-md">Upload Recorded Video & Notes</h3>
-                  <p className="text-[11px] font-medium text-white/90 drop-shadow-sm">Add Google Drive, YouTube, Loom, or MP4 video links</p>
+                  <p className="text-[11px] font-medium text-white/90 drop-shadow-sm">Upload video file directly from laptop or paste link</p>
                 </div>
               </div>
               <button 
@@ -1284,7 +1479,7 @@ export const MentorDashboard: React.FC = () => {
               </button>
             </div>
             
-            <form onSubmit={handleUploadNote} className="p-6 space-y-4 text-sm">
+            <form onSubmit={handleUploadNote} className="p-6 space-y-4 text-sm max-h-[80vh] overflow-y-auto">
               <div>
                 <label className="block text-xs font-extrabold text-slate-700 mb-1.5 uppercase tracking-wide">Lecture / Video Title <span className="text-rose-500">*</span></label>
                 <input
@@ -1321,21 +1516,146 @@ export const MentorDashboard: React.FC = () => {
                 </div>
               </div>
 
+              {/* Source Mode Switcher: Laptop File vs Video URL */}
+              <div>
+                <label className="block text-xs font-extrabold text-slate-700 mb-2 uppercase tracking-wide">
+                  Select Video Source <span className="text-rose-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200/80 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setNoteSourceType('file')}
+                    className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center space-x-2 ${
+                      noteSourceType === 'file'
+                        ? 'bg-white text-orange-600 shadow-sm border border-slate-200/60'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>📁 Upload Video from Laptop</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNoteSourceType('url')}
+                    className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center space-x-2 ${
+                      noteSourceType === 'url'
+                        ? 'bg-white text-orange-600 shadow-sm border border-slate-200/60'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Link className="w-3.5 h-3.5" />
+                    <span>🔗 Paste Video Link</span>
+                  </button>
+                </div>
+
+                {noteSourceType === 'file' ? (
+                  <div>
+                    {!videoFile ? (
+                      <div 
+                        onDragOver={(e) => { e.preventDefault(); setIsDraggingVideo(true); }}
+                        onDragLeave={() => setIsDraggingVideo(false)}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          setIsDraggingVideo(false);
+                          if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                            handleVideoFileSelect(e.dataTransfer.files[0]);
+                          }
+                        }}
+                        className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer group ${
+                          isDraggingVideo ? 'border-orange-500 bg-orange-50' : 'border-slate-300 hover:border-orange-400 bg-slate-50/70 hover:bg-orange-50/30'
+                        }`}
+                      >
+                        <input
+                          type="file"
+                          required={noteSourceType === 'file' && !videoPreviewUrl}
+                          accept="video/*,.mp4,.webm,.mkv,.mov,.avi"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              handleVideoFileSelect(e.target.files[0]);
+                            }
+                          }}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        />
+                        <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform shadow-sm">
+                          <Upload className="w-6 h-6" />
+                        </div>
+                        <h4 className="text-xs font-extrabold text-slate-800">
+                          Click to select video from laptop or Drag & Drop
+                        </h4>
+                        <p className="text-[11px] text-slate-500 mt-1 font-medium">
+                          Supports MP4, WEBM, MOV, MKV, AVI files
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-orange-50/80 rounded-2xl border border-orange-200/80 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3 truncate">
+                            <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center flex-shrink-0 font-black text-xs shadow-sm">
+                              🎬
+                            </div>
+                            <div className="truncate">
+                              <p className="text-xs font-black text-slate-900 truncate">{newNote.fileName}</p>
+                              <p className="text-[10px] font-bold text-slate-500">Size: {newNote.fileSize} • Duration: {newNote.duration}</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setVideoFile(null);
+                              setVideoPreviewUrl(null);
+                              setNewNote(prev => ({ ...prev, fileUrl: '', fileName: '', fileSize: '' }));
+                            }}
+                            className="px-3 py-1 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-lg text-xs font-bold transition-all flex items-center space-x-1"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Change</span>
+                          </button>
+                        </div>
+
+                        {videoPreviewUrl && (
+                          <div className="rounded-xl overflow-hidden bg-black aspect-video max-h-40 border border-orange-200">
+                            <video src={videoPreviewUrl} controls className="w-full h-full object-contain"></video>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      type="url"
+                      required={noteSourceType === 'url'}
+                      placeholder="Paste Google Drive, YouTube, Loom, Vimeo or .mp4 link..."
+                      value={newNote.link}
+                      onChange={(e) => setNewNote({ ...newNote, link: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-semibold text-slate-900 placeholder:text-slate-400 placeholder:font-medium shadow-sm"
+                    />
+                    <p className="text-[11px] text-slate-500 mt-1 font-medium">
+                      💡 Supports Google Drive ("Anyone with link"), YouTube, Loom, Vimeo, or direct MP4 files.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Optional PDF Notes File Upload from Laptop */}
               <div>
                 <label className="block text-xs font-extrabold text-slate-700 mb-1.5 uppercase tracking-wide">
-                  Recorded Video URL <span className="text-rose-500">*</span>
+                  Attach PDF Notes / Reference Code <span className="text-slate-400 font-semibold normal-case">(Optional)</span>
                 </label>
-                <input
-                  type="url"
-                  required
-                  placeholder="Paste Google Drive, YouTube, Loom, Vimeo or .mp4 link..."
-                  value={newNote.link}
-                  onChange={(e) => setNewNote({ ...newNote, link: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-semibold text-slate-900 placeholder:text-slate-400 placeholder:font-medium shadow-sm"
-                />
-                <p className="text-[11px] text-slate-500 mt-1 font-medium">
-                  💡 Supports Google Drive ("Anyone with link"), YouTube, Loom, Vimeo, or direct MP4 files.
-                </p>
+                <div className="relative group">
+                  <input 
+                    type="file" 
+                    accept=".pdf,.doc,.docx,.zip,.rar"
+                    onChange={(e) => setNewNote({ ...newNote, pdfNotesName: e.target.files?.[0]?.name || '' })}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                  <div className={`w-full px-4 py-2.5 rounded-xl border-2 border-dashed ${newNote.pdfNotesName ? 'border-orange-400 bg-orange-50' : 'border-slate-200 bg-slate-50 group-hover:border-orange-300 group-hover:bg-orange-50/30'} transition-all flex items-center justify-center space-x-2`}>
+                    <Upload className={`w-4 h-4 ${newNote.pdfNotesName ? 'text-orange-500' : 'text-slate-400 group-hover:text-orange-400'}`} />
+                    <span className={`text-xs font-bold ${newNote.pdfNotesName ? 'text-orange-700' : 'text-slate-500 group-hover:text-orange-600'}`}>
+                      {newNote.pdfNotesName ? newNote.pdfNotesName : 'Upload PDF notes or source code zip from laptop'}
+                    </span>
+                  </div>
+                </div>
               </div>
 
               <div className="pt-4 flex items-center justify-end space-x-3 border-t border-slate-100 mt-4">
@@ -1348,13 +1668,50 @@ export const MentorDashboard: React.FC = () => {
                 </button>
                 <button 
                   type="submit"
-                  className="px-6 py-2.5 text-sm font-extrabold text-white bg-orange-500 hover:bg-orange-600 rounded-xl shadow-md transition-all active:scale-95 flex items-center space-x-1.5"
+                  className="px-6 py-2.5 text-sm font-extrabold text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 rounded-xl shadow-md transition-all active:scale-95 flex items-center space-x-1.5"
                 >
                   <Upload className="w-4 h-4 stroke-[3]" />
                   <span>Publish Recorded Video</span>
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Video Modal Player for Mentor Preview */}
+      {playingMentorVideo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-950 rounded-2xl max-w-4xl w-full p-2 relative shadow-2xl border border-slate-800">
+            <button onClick={() => setPlayingMentorVideo(null)} className="absolute -top-4 -right-4 text-white text-lg z-50 bg-rose-600 hover:bg-rose-700 rounded-full w-10 h-10 shadow-xl flex items-center justify-center transition-transform hover:scale-110 border-2 border-slate-900">
+              ✕
+            </button>
+            <div className="w-full aspect-video rounded-xl overflow-hidden bg-black flex items-center justify-center">
+              {playingMentorVideo.match(/\.(mp4|webm|ogg|mov|mkv|avi)$/i) || playingMentorVideo.includes('w3schools.com') || playingMentorVideo.startsWith('blob:') || playingMentorVideo.startsWith('data:') ? (
+                <video src={playingMentorVideo} controls autoPlay className="w-full h-full object-contain"></video>
+              ) : playingMentorVideo.includes('youtube.com') || playingMentorVideo.includes('youtu.be') ? (
+                <iframe 
+                  src={playingMentorVideo.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')} 
+                  className="w-full h-full" 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                  allowFullScreen
+                ></iframe>
+              ) : playingMentorVideo.includes('drive.google.com') ? (
+                 <iframe 
+                  src={playingMentorVideo.replace(/\/view.*/, '/preview')} 
+                  className="w-full h-full" 
+                  allow="autoplay; encrypted-media" 
+                  allowFullScreen
+                ></iframe>
+              ) : (
+                <iframe 
+                  src={playingMentorVideo} 
+                  className="w-full h-full bg-white" 
+                  allow="autoplay; encrypted-media" 
+                  allowFullScreen
+                ></iframe>
+              )}
+            </div>
           </div>
         </div>
       )}
