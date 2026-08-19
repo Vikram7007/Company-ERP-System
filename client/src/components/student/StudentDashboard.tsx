@@ -58,6 +58,7 @@ import confetti from 'canvas-confetti';
 import { INITIAL_DOMAINS, INITIAL_LIVE_CLASSES, INITIAL_LECTURES, INITIAL_ASSIGNMENTS, SAMPLE_QUIZ, INITIAL_JOBS } from '../../data/mockData';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import { SyllabusLesson } from '../../types';
 
 export const StudentDashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -96,7 +97,7 @@ export const StudentDashboard: React.FC = () => {
 
   // Lesson Detail Modal State
   const [selectedLessonModal, setSelectedLessonModal] = useState<{
-    lesson: { id: string; title: string; duration: string; objectives: string[]; completed: boolean; notesUrl?: string; videoUrl?: string };
+    lesson: SyllabusLesson;
     weekNum: number;
     weekTitle: string;
   } | null>(null);

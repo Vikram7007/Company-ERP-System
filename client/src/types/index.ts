@@ -172,6 +172,7 @@ export interface Assignment {
   maxMarks: number;
   description: string;
   attachmentUrl?: string;
+  pdfFileName?: string;
   totalSubmissions: number;
 }
 
@@ -214,6 +215,7 @@ export interface Quiz {
   progressPercent?: number;
   questionsAnswered?: number;
   bestScore?: number;
+  timeLimitMins?: number;
 }
 
 export interface Certificate {
@@ -225,6 +227,7 @@ export interface Certificate {
   issueDate: string;
   grade: string;
   qrCodeUrl: string;
+  certificateUrl?: string;
   verified: boolean;
 }
 
@@ -248,6 +251,9 @@ export interface JobPosting {
   type: 'Full-time' | 'Internship' | 'PPO';
   skillsRequired: string[];
   appliedCount: number;
+  title?: string;
+  company?: string;
+  salary?: string;
 }
 
 export interface ChatMessage {

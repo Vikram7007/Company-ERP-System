@@ -157,6 +157,7 @@ export const MentorDashboard: React.FC = () => {
     addAssignment({
       title: newAssignment.title,
       domain: newAssignment.domain,
+      batch: 'Batch W-2026-A',
       dueDate: newAssignment.dueDate,
       maxMarks: newAssignment.maxMarks,
       description: newAssignment.description,

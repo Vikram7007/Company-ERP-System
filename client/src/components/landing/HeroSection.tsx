@@ -15,7 +15,7 @@ export const HeroSection: React.FC<Props> = ({ onApply, onVerify }) => {
 
   useEffect(() => {
     const currentWord = TYPING_WORDS[wordIndex];
-    let timeout: NodeJS.Timeout;
+    let timeout: ReturnType<typeof setTimeout>;
 
     if (isDeleting) {
       timeout = setTimeout(() => {

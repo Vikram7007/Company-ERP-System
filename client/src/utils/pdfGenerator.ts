@@ -14,8 +14,8 @@ export const generateAttendancePDF = async (report: DailyAttendanceReport) => {
   });
 
   // Websums Theme Colors
-  const primaryColor = [249, 115, 22]; // Orange 500
-  const secondaryColor = [30, 41, 59]; // Slate 800
+  const primaryColor: [number, number, number] = [249, 115, 22]; // Orange 500
+  const secondaryColor: [number, number, number] = [30, 41, 59]; // Slate 800
 
   // 1. Add Company Logo & Header
   try {
