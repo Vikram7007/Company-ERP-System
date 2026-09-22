@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { INITIAL_DOMAINS } from '../../data/mockData';
 import { Domain } from '../../types';
 import { Code, Bot, Cpu, BarChart3, ShieldCheck, Cloud, Layout, Coffee, Terminal, Smartphone, TrendingUp, Binary, ChevronRight, BookOpen, Clock, Users } from 'lucide-react';
@@ -6,13 +6,25 @@ import { Code, Bot, Cpu, BarChart3, ShieldCheck, Cloud, Layout, Coffee, Terminal
 interface Props {
   onSelectDomain: (domain: Domain) => void;
   onApply: () => void;
+  selectedDomainId?: string | null;
+  searchTerm?: string;
+  searchVersion?: number;
 }
 
-export const DomainGrid: React.FC<Props> = ({ onSelectDomain, onApply }) => {
+export const DomainGrid: React.FC<Props> = ({ onSelectDomain, onApply, selectedDomainId, searchTerm = '', searchVersion = 0 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedSyllabusDomain, setSelectedSyllabusDomain] = useState<Domain | null>(null);
 
-  const categories = ['All', 'Web Development', 'Data & AI', 'Cloud', 'Security', 'Design'];
+  useEffect(() => {
+    if (!selectedDomainId) return;
+
+    setSelectedCategory('All');
+    window.setTimeout(() => {
+      document.getElementById(`domain-${selectedDomainId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 0);
+  }, [selectedDomainId]);
+
+  const categories = ['All', 'Web Development', 'Artificial Intelligence and Machine Learning', 'Cloud', 'Security', 'Design'];
 
   const getIcon = (iconName: string) => {
     switch (iconName) {
@@ -31,9 +43,21 @@ export const DomainGrid: React.FC<Props> = ({ onSelectDomain, onApply }) => {
     }
   };
 
-  const filtered = selectedCategory === 'All'
+  const categoryFiltered = selectedCategory === 'All'
     ? INITIAL_DOMAINS
     : INITIAL_DOMAINS.filter((d) => d.category === selectedCategory);
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+  const filtered = normalizedSearchTerm
+    ? categoryFiltered.filter((d) => `${d.name} ${d.category}`.toLowerCase().includes(normalizedSearchTerm))
+    : categoryFiltered;
+
+  useEffect(() => {
+    if (!searchVersion || !normalizedSearchTerm || !filtered[0]) return;
+
+    window.setTimeout(() => {
+      document.getElementById(`domain-${filtered[0].id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 0);
+  }, [searchVersion]);
 
   return (
     <section className="py-20 bg-gradient-to-b from-white via-orange-50/10 to-white relative">
@@ -70,6 +94,7 @@ export const DomainGrid: React.FC<Props> = ({ onSelectDomain, onApply }) => {
           {filtered.map((dom) => (
             <div
               key={dom.id}
+              id={`domain-${dom.id}`}
               className="bg-white rounded-[2rem] p-7 border border-slate-200 hover:border-orange-300 shadow-sm hover:shadow-2xl hover:shadow-orange-500/10 hover:-translate-y-2 transition-all duration-300 flex flex-col justify-between group relative overflow-hidden"
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-orange-100/50 to-transparent rounded-bl-[100px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>

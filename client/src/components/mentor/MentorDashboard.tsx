@@ -31,18 +31,24 @@ import {
   Download,
   Calendar,
   FileText as FileTextIcon,
-  Play
+  Play,
+  LayoutGrid,
+  List,
+  RefreshCw
 } from 'lucide-react';
 import { INITIAL_LIVE_CLASSES, INITIAL_ASSIGNMENTS, INITIAL_LECTURES } from '../../data/mockData';
 import { Student, Assignment, StudentApplication } from '../../types';
 import { useData } from '../../context/DataContext';
+import { useAuth } from '../../context/AuthContext';
 import { PdfResumeModal } from '../common/PdfResumeModal';
 import { RecordPaymentModal } from '../common/RecordPaymentModal';
 import { AttendanceReportPreviewModal } from '../common/AttendanceReportPreviewModal';
 import { generateAttendancePDF } from '../../utils/pdfGenerator';
 
 export const MentorDashboard: React.FC = () => {
-  const { students, applications, updateApplicationStatus, assignments, addAssignment, submissions, attendanceReports, saveAttendanceReport, liveClasses, recordedLectures, addLiveClass, addRecordedLecture, endLiveClass } = useData();
+  const { students, applications, updateApplicationStatus, assignments, addAssignment, submissions, attendanceReports, saveAttendanceReport, liveClasses, recordedLectures, addLiveClass, addRecordedLecture, endLiveClass, resetData } = useData();
+  const { user } = useAuth();
+  const mentorName = user?.name || 'Mentor';
 
   const [activeTab, setActiveTab] = useState<'attendance' | 'students' | 'applications' | 'assignments' | 'materials'>('attendance');
   const [attendanceTab, setAttendanceTab] = useState<'take' | 'view'>('take');
@@ -57,6 +63,21 @@ export const MentorDashboard: React.FC = () => {
   const [studentSearch, setStudentSearch] = useState('');
   const [selectedBatch, setSelectedBatch] = useState<string>('All');
   const [feeStatusFilter, setFeeStatusFilter] = useState<string>('All');
+  const [studentPage, setStudentPage] = useState(1);
+  const studentsPerPage = 8;
+
+  // Batch Wise Attendance state
+  const [selectedAttendanceBatch, setSelectedAttendanceBatch] = useState<string>('Batch W-2026-A');
+  const [attendanceSearch, setAttendanceSearch] = useState<string>('');
+  const [reportBatchFilter, setReportBatchFilter] = useState<string>('All');
+
+  // Pagination & Layout for Attendance tab & Reports
+  const [attendancePage, setAttendancePage] = useState(1);
+  const attendanceStudentsPerPage = 5;
+
+  const [reportPage, setReportPage] = useState(1);
+  const [reportViewMode, setReportViewMode] = useState<'grid' | 'table'>('grid');
+  const reportsPerPage = reportViewMode === 'grid' ? 4 : 6;
 
   // Modal for Fee Payment
   const [selectedStudentForFee, setSelectedStudentForFee] = useState<Student | null>(null);
@@ -72,6 +93,85 @@ export const MentorDashboard: React.FC = () => {
   });
 
   const [attendanceSaved, setAttendanceSaved] = useState(false);
+
+  // List of available batches dynamically from students + defaults
+  const availableAttendanceBatches = Array.from(new Set([
+    'Batch RK-Gurukul-DS',
+    'Batch W-2026-A',
+    'Batch W-2026-B',
+    'Batch W-2026-C',
+    'Batch W-2026-D',
+    ...students.map(s => s.batch).filter(Boolean)
+  ]));
+
+  const attendanceFilteredStudents = students.filter(std => {
+    const matchesBatch = selectedAttendanceBatch === 'All' || std.batch === selectedAttendanceBatch;
+    const matchesSearch = attendanceSearch === '' || 
+      std.domain.toLowerCase().includes(attendanceSearch.toLowerCase());
+    return matchesBatch && matchesSearch;
+  });
+
+  const filteredFeeStudents = students.filter(std => {
+    const matchesSearch = std.domain.toLowerCase().includes(studentSearch.toLowerCase());
+    const matchesBatch = selectedBatch === 'All' || std.batch === selectedBatch;
+    const feeStatus = std.feeDetails?.status || 'Unpaid';
+    const matchesFee = feeStatusFilter === 'All' || feeStatus === feeStatusFilter;
+    return matchesSearch && matchesBatch && matchesFee;
+  });
+
+  const totalStudentPages = Math.max(1, Math.ceil(filteredFeeStudents.length / studentsPerPage));
+  const currentStudentPage = Math.min(studentPage, totalStudentPages);
+  const paginatedStudents = filteredFeeStudents.slice((currentStudentPage - 1) * studentsPerPage, currentStudentPage * studentsPerPage);
+
+  const handleMarkAllInBatch = (status: 'Present' | 'Absent' | 'Late') => {
+    const updated = { ...attendanceMap };
+    attendanceFilteredStudents.forEach(std => {
+      updated[std.id] = status;
+    });
+    setAttendanceMap(updated);
+  };
+
+  const handleMarkAttendance = (id: string, status: 'Present' | 'Absent' | 'Late' | 'Leave') => {
+    setAttendanceMap((prev) => ({ ...prev, [id]: status }));
+  };
+
+  const handleSaveAttendance = () => {
+    const dateStr = new Date().toISOString().split('T')[0];
+    const targetStudents = students.filter(std => selectedAttendanceBatch === 'All' || std.batch === selectedAttendanceBatch);
+
+    if (targetStudents.length === 0) {
+      alert("No students found in the selected batch to mark attendance.");
+      return;
+    }
+
+    const records: any[] = targetStudents.map(std => ({
+      id: `rec-${std.id}-${Date.now()}`,
+      studentId: std.id,
+      studentName: std.name,
+      batch: std.batch,
+      domain: std.domain,
+      date: dateStr,
+      status: attendanceMap[std.id] || 'Present'
+    }));
+
+    const presentCount = records.filter(r => r.status === 'Present').length;
+    const absentCount = records.filter(r => r.status === 'Absent').length;
+    const lateCount = records.filter(r => r.status === 'Late').length;
+
+    saveAttendanceReport({
+      date: dateStr,
+      batch: selectedAttendanceBatch === 'All' ? 'All Batches Combined' : selectedAttendanceBatch,
+      mentorName,
+      totalStudents: targetStudents.length,
+      presentCount,
+      absentCount,
+      lateCount,
+      records
+    });
+
+    setAttendanceSaved(true);
+    setTimeout(() => setAttendanceSaved(false), 3000);
+  };
 
   // Resume Modal
   const [selectedAppForResume, setSelectedAppForResume] = useState<StudentApplication | null>(null);
@@ -174,41 +274,6 @@ export const MentorDashboard: React.FC = () => {
     });
   };
 
-  const handleMarkAttendance = (id: string, status: 'Present' | 'Absent' | 'Late' | 'Leave') => {
-    setAttendanceMap((prev) => ({ ...prev, [id]: status }));
-  };
-
-  const handleSaveAttendance = () => {
-    const dateStr = new Date().toISOString().split('T')[0];
-    const records: any[] = students.map(std => ({
-      id: `rec-${std.id}`,
-      studentId: std.id,
-      studentName: std.name,
-      batch: std.batch,
-      domain: std.domain,
-      date: dateStr,
-      status: attendanceMap[std.id] || 'Present'
-    }));
-
-    const presentCount = records.filter(r => r.status === 'Present').length;
-    const absentCount = records.filter(r => r.status === 'Absent').length;
-    const lateCount = records.filter(r => r.status === 'Late').length;
-
-    saveAttendanceReport({
-      date: dateStr,
-      batch: 'Batch W-2026-A',
-      mentorName: 'Dr. Rajesh Verma',
-      totalStudents: students.length,
-      presentCount,
-      absentCount,
-      lateCount,
-      records
-    });
-
-    setAttendanceSaved(true);
-    setTimeout(() => setAttendanceSaved(false), 3000);
-  };
-
   const handleUploadNote = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -246,7 +311,7 @@ export const MentorDashboard: React.FC = () => {
     e.preventDefault();
     addLiveClass({
       ...newLiveClass,
-      mentorName: 'Dr. Rajesh Verma'
+      mentorName
     });
     setNewLiveClass({ title: '', domain: 'MERN Stack Development', batch: 'Batch W-2026-A', date: '', time: '', durationMinutes: 60, meetingPlatform: 'Zoom', meetingUrl: '' });
     setShowScheduleModal(false);
@@ -276,14 +341,18 @@ export const MentorDashboard: React.FC = () => {
             <UserCheck className="w-4 h-4 text-emerald-900" />
             <span>Senior Instructor Workspace</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black">Dr. Rajesh Verma • Mentor Panel</h2>
+          <h2 className="text-2xl sm:text-3xl font-black">{mentorName} • Mentor Panel</h2>
           <p className="text-xs text-orange-950/90 mt-1 font-medium">Assigned Domains: MERN Stack Development & Full Stack Java</p>
         </div>
 
         <div className="flex items-center space-x-3 bg-white/25 px-4 py-2.5 rounded-2xl backdrop-blur-md border border-white/40 text-xs font-semibold shadow-sm">
           <div>
-            <div className="text-white font-black text-sm">Batch W-2026-A</div>
-            <div className="text-orange-950/90 text-[10px] font-bold">{students.length} Active Students</div>
+            <div className="text-white font-black text-sm">
+              {selectedAttendanceBatch === 'All' ? 'All Active Batches' : selectedAttendanceBatch}
+            </div>
+            <div className="text-orange-950/90 text-[10px] font-bold">
+              {students.filter(s => selectedAttendanceBatch === 'All' || s.batch === selectedAttendanceBatch).length} Active Students
+            </div>
           </div>
         </div>
       </div>
@@ -336,126 +405,238 @@ export const MentorDashboard: React.FC = () => {
 
       {/* TAB 1: ATTENDANCE MARKER */}
       {activeTab === 'attendance' && (
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-card p-6 space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-card p-6 space-y-5">
+          
+          {/* Header & Subtabs */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
             <div>
-              <h3 className="text-base font-bold text-slate-900">Batch W-2026-A Live Attendance</h3>
-              <div className="flex items-center space-x-2 mt-2">
+              <div className="flex items-center space-x-2">
+                <h3 className="text-lg font-black text-slate-900">
+                  {selectedAttendanceBatch === 'All' ? 'All Batches Combined' : selectedAttendanceBatch} Live Attendance
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-orange-100 text-orange-700 border border-orange-200">
+                  {attendanceFilteredStudents.length} Students
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Select a specific batch below to mark attendance, apply bulk status, or review archived reports.
+              </p>
+
+              <div className="flex items-center space-x-2 mt-3">
                 <button
                   onClick={() => setAttendanceTab('take')}
-                  className={`px-3 py-1.5 text-[11px] font-bold rounded-lg transition-colors ${attendanceTab === 'take' ? 'bg-orange-100 text-orange-700' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
+                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${attendanceTab === 'take' ? 'bg-orange-500 text-white shadow-sm shadow-orange-500/30' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                 >
                   Take Attendance
                 </button>
                 <button
                   onClick={() => setAttendanceTab('view')}
-                  className={`px-3 py-1.5 text-[11px] font-bold rounded-lg transition-colors ${attendanceTab === 'view' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
+                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${attendanceTab === 'view' ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                 >
-                  View Reports
+                  View Reports ({attendanceReports.length})
                 </button>
               </div>
             </div>
+
+            {/* Save Button */}
             {attendanceTab === 'take' && (
               <button
                 onClick={handleSaveAttendance}
-                className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm transition-all flex items-center space-x-1.5"
+                className="px-6 py-2.5 text-xs font-extrabold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-2xl shadow-md shadow-emerald-600/20 transition-all flex items-center space-x-2 shrink-0 cursor-pointer active:scale-95"
               >
-                <CheckCircle2 className="w-4 h-4" />
+                <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
                 <span>Save Attendance Report</span>
               </button>
             )}
           </div>
 
           {attendanceSaved && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-bold flex items-center space-x-2">
-              <CheckCircle className="w-4 h-4" />
-              <span>Attendance report recorded successfully! Student percentages updated.</span>
+            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs font-bold flex items-center space-x-2 shadow-xs animate-in fade-in">
+              <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Attendance report for <strong>{selectedAttendanceBatch}</strong> saved successfully! Updated reports and student logs.</span>
             </div>
           )}
 
-          {attendanceTab === 'take' && (
-            <div className="space-y-3">
-              <p className="text-xs text-slate-500 font-medium">Date: {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</p>
-              {students.map((std) => {
-                const currentStatus = attendanceMap[std.id] || 'Present';
-                const fee = std.feeDetails || { totalFee: 15000, paidAmount: 0, pendingAmount: 15000, status: 'Unpaid' };
-                return (
-                  <div key={std.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-orange-200 transition-colors">
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <h4 className="font-bold text-slate-900 text-xs">{std.name}</h4>
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                          fee.status === 'Paid' ? 'bg-emerald-100 text-emerald-800' : fee.status === 'Partial' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
-                        }`}>
-                          Fee: {fee.status}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 mt-0.5">{std.email} • {std.college} • {std.domain}</p>
-                    </div>
-                    <div className="flex items-center space-x-2 w-full sm:w-auto">
-                      {['Present', 'Absent', 'Late'].map((status) => (
-                        <button
-                          key={status}
-                          onClick={() => handleMarkAttendance(std.id, status as any)}
-                          className={`flex-1 sm:flex-none px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                            currentStatus === status
-                              ? status === 'Present' ? 'bg-emerald-600 text-white shadow-md' : status === 'Absent' ? 'bg-rose-500 text-white shadow-md' : 'bg-amber-500 text-white shadow-md'
-                              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
-                          }`}
-                        >
-                          {status}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          {/* TAKE ATTENDANCE SUB-TAB */}
+          {attendanceTab === 'take' && (() => {
+            const totalAttendancePages = Math.ceil(attendanceFilteredStudents.length / attendanceStudentsPerPage) || 1;
+            const currentPage = Math.min(attendancePage, totalAttendancePages);
+            const paginatedAttendanceStudents = attendanceFilteredStudents.slice(
+              (currentPage - 1) * attendanceStudentsPerPage,
+              currentPage * attendanceStudentsPerPage
+            );
 
-          {attendanceTab === 'view' && (
-            <div className="space-y-4 print:space-y-6">
-              
-              <div className="flex flex-col sm:flex-row justify-end items-center gap-3 print:hidden">
-                {/* Exact Date Picker */}
-                <div className="relative flex items-center">
-                  <Calendar className="w-4 h-4 text-slate-400 absolute left-3" />
-                  <input
-                    type="date"
-                    value={exactDateFilter}
-                    onChange={(e) => {
-                      setExactDateFilter(e.target.value);
-                      if (e.target.value) setReportTimeFilter('All');
-                    }}
-                    className="pl-9 pr-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500 transition-all"
-                  />
-                  {exactDateFilter && (
-                    <button 
-                      onClick={() => setExactDateFilter('')}
-                      className="ml-2 px-2 py-1.5 text-[10px] font-bold text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all"
+            return (
+              <div className="space-y-4">
+                
+                {/* Batch Selector & Quick Actions Control Toolbar */}
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                  
+                  {/* Batch Dropdown */}
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-bold text-slate-700 shrink-0">Select Batch:</span>
+                    <select
+                      value={selectedAttendanceBatch}
+                      onChange={(e) => {
+                        setSelectedAttendanceBatch(e.target.value);
+                        setAttendancePage(1);
+                      }}
+                      className="py-2 px-3 text-xs font-extrabold rounded-xl border border-slate-300 bg-white text-slate-800 focus:outline-none focus:border-orange-500 cursor-pointer shadow-xs"
                     >
-                      Clear
+                      <option value="All">All Batches</option>
+                      {availableAttendanceBatches.map(b => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Search Bar within Batch */}
+                  <div className="relative flex-1 max-w-xs">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Search student in batch..."
+                      value={attendanceSearch}
+                      onChange={(e) => {
+                        setAttendanceSearch(e.target.value);
+                        setAttendancePage(1);
+                      }}
+                      className="w-full pl-8 pr-3 py-1.5 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+
+                  {/* Quick Bulk Actions */}
+                  <div className="flex items-center space-x-2 shrink-0">
+                    <span className="text-[11px] font-bold text-slate-500 hidden sm:inline">Batch Actions:</span>
+                    <button
+                      onClick={() => handleMarkAllInBatch('Present')}
+                      className="px-3 py-1.5 text-[11px] font-extrabold bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-xl transition-all border border-emerald-200 cursor-pointer"
+                    >
+                      Mark All Present
                     </button>
-                  )}
+                    <button
+                      onClick={() => handleMarkAllInBatch('Absent')}
+                      className="px-3 py-1.5 text-[11px] font-extrabold bg-rose-100 hover:bg-rose-200 text-rose-800 rounded-xl transition-all border border-rose-200 cursor-pointer"
+                    >
+                      Mark All Absent
+                    </button>
+                  </div>
                 </div>
 
-                {/* Range Dropdown */}
-                <select
-                  value={reportTimeFilter}
-                  onChange={(e) => {
-                    setReportTimeFilter(e.target.value as any);
-                    if (e.target.value !== 'All') setExactDateFilter('');
-                  }}
-                  className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500 cursor-pointer"
-                >
-                  <option value="All">All Range</option>
-                  <option value="Daily">Today (Daily)</option>
-                  <option value="Weekly">Last 7 Days (Weekly)</option>
-                  <option value="Monthly">Last 30 Days (Monthly)</option>
-                </select>
-              </div>
+                {/* Batch Attendance Summary Bar */}
+                <div className="flex items-center justify-between text-xs font-bold px-1 text-slate-600">
+                  <p>Date: {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                  <div className="flex items-center space-x-3 text-[11px]">
+                    <span className="text-emerald-700">
+                      Present: {attendanceFilteredStudents.filter(s => (attendanceMap[s.id] || 'Present') === 'Present').length}
+                    </span>
+                    <span className="text-rose-700">
+                      Absent: {attendanceFilteredStudents.filter(s => attendanceMap[s.id] === 'Absent').length}
+                    </span>
+                    <span className="text-amber-700">
+                      Late: {attendanceFilteredStudents.filter(s => attendanceMap[s.id] === 'Late').length}
+                    </span>
+                  </div>
+                </div>
 
-              {attendanceReports.filter(r => {
+                {/* Students Attendance List (Bounded Max Height Container) */}
+                {attendanceFilteredStudents.length === 0 ? (
+                  <div className="text-center py-12 bg-slate-50 rounded-2xl border border-slate-200/80">
+                    <Users className="w-9 h-9 text-slate-300 mx-auto mb-2" />
+                    <p className="text-xs font-bold text-slate-600">No students found for {selectedAttendanceBatch}.</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Try selecting another batch from the dropdown above.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1 scrollbar-thin">
+                    {paginatedAttendanceStudents.map((std) => {
+                      const currentStatus = attendanceMap[std.id] || 'Present';
+                      const fee = std.feeDetails || { totalFee: 15000, paidAmount: 0, pendingAmount: 15000, status: 'Unpaid' };
+                      return (
+                        <div key={std.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-orange-200 transition-colors">
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <h4 className="font-bold text-slate-900 text-xs">{std.name}</h4>
+                              <span className="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[9px] font-extrabold">
+                                {std.batch}
+                              </span>
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                                fee.status === 'Paid' ? 'bg-emerald-100 text-emerald-800' : fee.status === 'Partial' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
+                              }`}>
+                                Fee: {fee.status}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-500 mt-0.5">{std.email} • {std.college} • {std.domain}</p>
+                          </div>
+
+                          <div className="flex items-center space-x-2 w-full sm:w-auto">
+                            {['Present', 'Absent', 'Late'].map((status) => (
+                              <button
+                                key={status}
+                                onClick={() => handleMarkAttendance(std.id, status as any)}
+                                className={`flex-1 sm:flex-none px-4 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                                  currentStatus === status
+                                    ? status === 'Present' ? 'bg-emerald-600 text-white shadow-md' : status === 'Absent' ? 'bg-rose-500 text-white shadow-md' : 'bg-amber-500 text-white shadow-md'
+                                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                                }`}
+                              >
+                                {status}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Pagination Controls for Take Attendance */}
+                {totalAttendancePages > 1 && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200 text-xs font-bold text-slate-600">
+                    <div className="text-slate-500 text-xs">
+                      Showing <span className="font-black text-slate-800">{(currentPage - 1) * attendanceStudentsPerPage + 1}</span> to <span className="font-black text-slate-800">{Math.min(currentPage * attendanceStudentsPerPage, attendanceFilteredStudents.length)}</span> of <span className="font-black text-slate-800">{attendanceFilteredStudents.length}</span> students
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        disabled={currentPage === 1}
+                        onClick={() => setAttendancePage(p => Math.max(p - 1, 1))}
+                        className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs font-bold shadow-xs cursor-pointer"
+                      >
+                        Previous
+                      </button>
+                      <div className="flex items-center space-x-1">
+                        {Array.from({ length: totalAttendancePages }, (_, i) => i + 1).map((pg) => (
+                          <button
+                            key={pg}
+                            onClick={() => setAttendancePage(pg)}
+                            className={`w-7 h-7 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                              currentPage === pg
+                                ? 'bg-orange-500 text-white shadow-xs'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            {pg}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        disabled={currentPage === totalAttendancePages}
+                        onClick={() => setAttendancePage(p => Math.min(p + 1, totalAttendancePages))}
+                        className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs font-bold shadow-xs cursor-pointer"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* VIEW REPORTS SUB-TAB */}
+          {attendanceTab === 'view' && (() => {
+            const filteredReports = attendanceReports
+              .filter(r => {
+                if (reportBatchFilter !== 'All' && r.batch !== reportBatchFilter) return false;
                 if (exactDateFilter) return r.date === exactDateFilter;
                 if (reportTimeFilter === 'All') return true;
                 const rDate = new Date(r.date).getTime();
@@ -464,59 +645,301 @@ export const MentorDashboard: React.FC = () => {
                 if (reportTimeFilter === 'Weekly') return (now - rDate) <= 7 * 24 * 60 * 60 * 1000;
                 if (reportTimeFilter === 'Monthly') return (now - rDate) <= 30 * 24 * 60 * 60 * 1000;
                 return true;
-              }).length === 0 ? (
-                <div className="text-center py-12 bg-slate-50/50 rounded-2xl border border-slate-200/50">
-                  <FileTextIcon className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                  <p className="text-sm font-bold text-slate-600">No attendance reports generated yet.</p>
-                </div>
-              ) : (
-                attendanceReports
-                  .filter(r => {
-                    if (exactDateFilter) return r.date === exactDateFilter;
-                    if (reportTimeFilter === 'All') return true;
-                    const rDate = new Date(r.date).getTime();
-                    const now = new Date().getTime();
-                    if (reportTimeFilter === 'Daily') return r.date === new Date().toISOString().split('T')[0];
-                    if (reportTimeFilter === 'Weekly') return (now - rDate) <= 7 * 24 * 60 * 60 * 1000;
-                    if (reportTimeFilter === 'Monthly') return (now - rDate) <= 30 * 24 * 60 * 60 * 1000;
-                    return true;
-                  })
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                  .map(report => (
-                  <div key={report.id} className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm space-y-4 print:shadow-none print:border-none print:p-0">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-black text-slate-900">{new Date(report.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</h4>
-                        <p className="text-[11px] text-slate-500 font-bold">{report.batch} • {report.totalStudents} Total Interns</p>
-                      </div>
-                      <button 
-                        onClick={() => setPreviewReport(report)}
-                        className="px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 text-[11px] font-bold rounded-lg flex items-center space-x-1.5 transition-colors print:hidden"
-                      >
-                        <FileTextIcon className="w-3.5 h-3.5" />
-                        <span>Preview & Download</span>
-                      </button>
+              })
+              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+            const totalReportPages = Math.ceil(filteredReports.length / reportsPerPage) || 1;
+            const currentRPage = Math.min(reportPage, totalReportPages);
+            const paginatedReports = filteredReports.slice((currentRPage - 1) * reportsPerPage, currentRPage * reportsPerPage);
+
+            return (
+              <div className="space-y-4 print:space-y-6">
+                
+                {/* Control Toolbar: Filters & View Switcher */}
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-3 print:hidden pb-1 border-b border-slate-100">
+                  
+                  {/* View Mode Toggle Buttons */}
+                  <div className="flex items-center space-x-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                    <button
+                      onClick={() => {
+                        setReportViewMode('grid');
+                        setReportPage(1);
+                      }}
+                      className={`px-3 py-1.5 text-xs font-extrabold rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer ${
+                        reportViewMode === 'grid'
+                          ? 'bg-white text-orange-600 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                      title="2-Column Grid Cards"
+                    >
+                      <LayoutGrid className="w-3.5 h-3.5" />
+                      <span>Grid View</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setReportViewMode('table');
+                        setReportPage(1);
+                      }}
+                      className={`px-3 py-1.5 text-xs font-extrabold rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer ${
+                        reportViewMode === 'table'
+                          ? 'bg-white text-orange-600 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                      title="Compact Table List"
+                    >
+                      <List className="w-3.5 h-3.5" />
+                      <span>Compact Table</span>
+                    </button>
+                  </div>
+
+                  {/* Right Controls: Filter Selectors */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Batch Filter Dropdown */}
+                    <select
+                      value={reportBatchFilter}
+                      onChange={(e) => {
+                        setReportBatchFilter(e.target.value);
+                        setReportPage(1);
+                      }}
+                      className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500 cursor-pointer shadow-xs"
+                    >
+                      <option value="All">All Batches</option>
+                      {availableAttendanceBatches.map(b => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
+
+                    {/* Exact Date Picker */}
+                    <div className="relative flex items-center">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-2.5" />
+                      <input
+                        type="date"
+                        value={exactDateFilter}
+                        onChange={(e) => {
+                          setExactDateFilter(e.target.value);
+                          setReportPage(1);
+                          if (e.target.value) setReportTimeFilter('All');
+                        }}
+                        className="pl-8 pr-2.5 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500 shadow-xs"
+                      />
+                      {exactDateFilter && (
+                        <button 
+                          onClick={() => {
+                            setExactDateFilter('');
+                            setReportPage(1);
+                          }}
+                          className="ml-1.5 px-2 py-1 text-[10px] font-bold text-slate-500 hover:text-slate-800 bg-slate-200 rounded-md"
+                        >
+                          Clear
+                        </button>
+                      )}
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-center">
-                        <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Present</p>
-                        <p className="text-2xl font-black text-emerald-700">{report.presentCount}</p>
+                    {/* Range Dropdown */}
+                    <select
+                      value={reportTimeFilter}
+                      onChange={(e) => {
+                        setReportTimeFilter(e.target.value as any);
+                        setReportPage(1);
+                        if (e.target.value !== 'All') setExactDateFilter('');
+                      }}
+                      className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500 cursor-pointer shadow-xs"
+                    >
+                      <option value="All">All Ranges</option>
+                      <option value="Daily">Today</option>
+                      <option value="Weekly">Last 7 Days</option>
+                      <option value="Monthly">Last 30 Days</option>
+                    </select>
+                  </div>
+                </div>
+
+                {filteredReports.length === 0 ? (
+                  <div className="text-center py-12 bg-slate-50/50 rounded-2xl border border-slate-200/50">
+                    <FileTextIcon className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                    <p className="text-sm font-bold text-slate-600">No attendance reports found matching your batch/date filters.</p>
+                  </div>
+                ) : reportViewMode === 'grid' ? (
+                  /* 2-COLUMN GRID VIEW */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[520px] overflow-y-auto pr-1 scrollbar-thin">
+                    {paginatedReports.map(report => {
+                      const total = report.totalStudents || 1;
+                      const presentPct = Math.round((report.presentCount / total) * 100);
+                      const absentPct = Math.round((report.absentCount / total) * 100);
+                      const latePct = Math.round((report.lateCount / total) * 100);
+
+                      return (
+                        <div key={report.id} className="p-4 bg-gradient-to-br from-white via-slate-50/60 to-white border border-slate-200/90 rounded-2xl shadow-sm hover:shadow-md hover:border-orange-300 transition-all space-y-3.5 relative overflow-hidden group">
+                          {/* Top Subtle Gradient Stripe */}
+                          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 via-amber-400 to-emerald-500" />
+
+                          {/* Card Header: Date & Batch Tag */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2.5">
+                              <div className="w-9 h-9 rounded-xl bg-orange-100/80 border border-orange-200 flex items-center justify-center text-orange-600 font-black text-xs shrink-0 shadow-xs">
+                                <Calendar className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <h4 className="font-extrabold text-slate-900 text-xs leading-tight">
+                                  {new Date(report.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                                </h4>
+                                <div className="flex items-center space-x-1.5 mt-0.5">
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-slate-100 text-slate-700 border border-slate-200">
+                                    {report.batch}
+                                  </span>
+                                  <span className="text-[10px] text-slate-500 font-semibold">• {report.totalStudents} Interns</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Percentage Pill */}
+                            <span className={`px-2.5 py-1 rounded-full text-[11px] font-black border shadow-2xs ${
+                              presentPct >= 80 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : presentPct >= 50 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-rose-50 text-rose-700 border-rose-200'
+                            }`}>
+                              {presentPct}% Present
+                            </span>
+                          </div>
+
+                          {/* Multi-Color Progress Track */}
+                          <div className="space-y-1.5">
+                            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex">
+                              <div style={{ width: `${presentPct}%` }} className="bg-emerald-500 h-full" title={`Present: ${report.presentCount}`} />
+                              <div style={{ width: `${latePct}%` }} className="bg-amber-400 h-full" title={`Late: ${report.lateCount}`} />
+                              <div style={{ width: `${absentPct}%` }} className="bg-rose-500 h-full" title={`Absent: ${report.absentCount}`} />
+                            </div>
+
+                            {/* Compact Stats Badges */}
+                            <div className="grid grid-cols-3 gap-2 text-center">
+                              <div className="px-2 py-1.5 rounded-xl bg-emerald-50/90 border border-emerald-100">
+                                <span className="text-[9px] font-extrabold text-emerald-600 uppercase tracking-wider block">Present</span>
+                                <span className="text-sm font-black text-emerald-800">{report.presentCount}</span>
+                              </div>
+                              <div className="px-2 py-1.5 rounded-xl bg-rose-50/90 border border-rose-100">
+                                <span className="text-[9px] font-extrabold text-rose-600 uppercase tracking-wider block">Absent</span>
+                                <span className="text-sm font-black text-rose-800">{report.absentCount}</span>
+                              </div>
+                              <div className="px-2 py-1.5 rounded-xl bg-amber-50/90 border border-amber-100">
+                                <span className="text-[9px] font-extrabold text-amber-600 uppercase tracking-wider block">Late</span>
+                                <span className="text-sm font-black text-amber-800">{report.lateCount}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Footer Action Button */}
+                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-slate-400">PDF Report Ready</span>
+                            <button 
+                              onClick={() => setPreviewReport(report)}
+                              className="px-3.5 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold text-[11px] rounded-xl shadow-xs hover:shadow-md transition-all flex items-center space-x-1.5 cursor-pointer active:scale-95"
+                            >
+                              <FileTextIcon className="w-3.5 h-3.5" />
+                              <span>Preview & Download</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  /* COMPACT TABLE VIEW */
+                  <div className="max-h-[500px] overflow-y-auto border border-slate-200 rounded-2xl bg-white shadow-xs scrollbar-thin">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
+                          <th className="py-3 px-4">Date</th>
+                          <th className="py-3 px-3">Batch</th>
+                          <th className="py-3 px-3">Attendance Breakdown</th>
+                          <th className="py-3 px-3 text-center">Rate</th>
+                          <th className="py-3 px-4 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-xs">
+                        {paginatedReports.map(report => {
+                          const total = report.totalStudents || 1;
+                          const presentPct = Math.round((report.presentCount / total) * 100);
+                          return (
+                            <tr key={report.id} className="hover:bg-orange-50/40 transition-colors font-medium">
+                              <td className="py-3 px-4 font-extrabold text-slate-900">
+                                {new Date(report.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className="px-2 py-0.5 text-[10px] font-black rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                                  {report.batch}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3">
+                                <div className="flex items-center space-x-3 text-[11px] font-bold">
+                                  <span className="text-emerald-700">P: {report.presentCount}</span>
+                                  <span className="text-rose-700">A: {report.absentCount}</span>
+                                  <span className="text-amber-700">L: {report.lateCount}</span>
+                                  <span className="text-slate-400 text-[10px]">({report.totalStudents} total)</span>
+                                </div>
+                              </td>
+                              <td className="py-3 px-3 text-center">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
+                                  presentPct >= 80 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                                }`}>
+                                  {presentPct}%
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <button
+                                  onClick={() => setPreviewReport(report)}
+                                  className="px-3 py-1 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 text-[11px] font-extrabold rounded-lg inline-flex items-center space-x-1 transition-all cursor-pointer"
+                                >
+                                  <FileTextIcon className="w-3 h-3" />
+                                  <span>Download</span>
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Pagination Controls for View Reports */}
+                {totalReportPages > 1 && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200 text-xs font-bold text-slate-600 print:hidden">
+                    <div className="text-slate-500 text-xs">
+                      Showing <span className="font-black text-slate-800">{(currentRPage - 1) * reportsPerPage + 1}</span> to <span className="font-black text-slate-800">{Math.min(currentRPage * reportsPerPage, filteredReports.length)}</span> of <span className="font-black text-slate-800">{filteredReports.length}</span> reports
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        disabled={currentRPage === 1}
+                        onClick={() => setReportPage(p => Math.max(p - 1, 1))}
+                        className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs font-bold shadow-xs cursor-pointer"
+                      >
+                        Previous
+                      </button>
+                      <div className="flex items-center space-x-1">
+                        {Array.from({ length: totalReportPages }, (_, i) => i + 1).map((pg) => (
+                          <button
+                            key={pg}
+                            onClick={() => setReportPage(pg)}
+                            className={`w-7 h-7 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                              currentRPage === pg
+                                ? 'bg-orange-500 text-white shadow-xs'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            {pg}
+                          </button>
+                        ))}
                       </div>
-                      <div className="p-3 bg-rose-50 rounded-xl border border-rose-100 text-center">
-                        <p className="text-[10px] text-rose-600 font-bold uppercase tracking-wider">Absent</p>
-                        <p className="text-2xl font-black text-rose-700">{report.absentCount}</p>
-                      </div>
-                      <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 text-center">
-                        <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wider">Late</p>
-                        <p className="text-2xl font-black text-amber-700">{report.lateCount}</p>
-                      </div>
+                      <button
+                        disabled={currentRPage === totalReportPages}
+                        onClick={() => setReportPage(p => Math.min(p + 1, totalReportPages))}
+                        className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs font-bold shadow-xs cursor-pointer"
+                      >
+                        Next
+                      </button>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -528,18 +951,18 @@ export const MentorDashboard: React.FC = () => {
           <div className="h-1.5 w-full bg-gradient-to-r from-orange-500 via-amber-500 to-emerald-500"></div>
 
           {/* Header & Controls Section */}
-          <div className="p-6 pb-5 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white">
+          <div className="p-4 pb-3 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white">
             <div>
-              <div className="flex items-center space-x-2">
-                <h3 className="text-lg font-black text-slate-900 tracking-tight">Registered Students Directory & Company Fee Records</h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-orange-100 text-orange-700 border border-orange-200">
+              <div className="flex items-center flex-wrap gap-2">
+                <h3 className="text-[1.05rem] font-black text-slate-900 tracking-tight leading-tight">Registered Students Directory & Company Fee Records</h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-orange-100 text-orange-700 border border-orange-200">
                   {filteredStudents.length} Active Records
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5 font-medium">Track total course fees, payments made, pending balances and manage records in real time</p>
+              <p className="text-[11px] text-slate-500 mt-1 font-medium">Track total course fees, payments made, pending balances and manage records in real time</p>
             </div>
             
-            <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
               {/* Search Bar */}
               <div className="relative flex-1 sm:w-64">
                 <Search className="w-4 h-4 text-orange-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -547,8 +970,11 @@ export const MentorDashboard: React.FC = () => {
                   type="text"
                   placeholder="Search by student name or email..."
                   value={studentSearch}
-                  onChange={(e) => setStudentSearch(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2.5 text-xs rounded-2xl border border-slate-200 bg-slate-50/80 focus:bg-white focus:outline-none focus:border-orange-500 transition-all font-medium text-slate-800 placeholder:text-slate-400"
+                  onChange={(e) => {
+                    setStudentSearch(e.target.value);
+                    setStudentPage(1);
+                  }}
+                  className="w-full pl-9 pr-8 py-2 text-[11px] rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white focus:outline-none focus:border-orange-500 transition-all font-medium text-slate-800 placeholder:text-slate-400"
                 />
                 {studentSearch && (
                   <button 
@@ -564,8 +990,11 @@ export const MentorDashboard: React.FC = () => {
               <div className="relative">
                 <select
                   value={feeStatusFilter}
-                  onChange={(e) => setFeeStatusFilter(e.target.value)}
-                  className="py-2.5 pl-3 pr-8 text-xs rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-white font-extrabold text-slate-700 cursor-pointer focus:outline-none focus:border-orange-500 transition-all appearance-none"
+                  onChange={(e) => {
+                    setFeeStatusFilter(e.target.value);
+                    setStudentPage(1);
+                  }}
+                  className="py-2 pl-3 pr-8 text-[11px] rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-white font-extrabold text-slate-700 cursor-pointer focus:outline-none focus:border-orange-500 transition-all appearance-none"
                 >
                   <option value="All">All Fee Status</option>
                   <option value="Paid">✅ Fully Paid</option>
@@ -579,16 +1008,32 @@ export const MentorDashboard: React.FC = () => {
               <div className="relative">
                 <select
                   value={selectedBatch}
-                  onChange={(e) => setSelectedBatch(e.target.value)}
-                  className="py-2.5 pl-3 pr-8 text-xs rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-white font-extrabold text-slate-700 cursor-pointer focus:outline-none focus:border-orange-500 transition-all appearance-none"
+                  onChange={(e) => {
+                    setSelectedBatch(e.target.value);
+                    setStudentPage(1);
+                  }}
+                  className="py-2 pl-3 pr-8 text-[11px] rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-white font-extrabold text-slate-700 cursor-pointer focus:outline-none focus:border-orange-500 transition-all appearance-none"
                 >
                   <option value="All">All Batches</option>
-                  <option value="Batch W-2026-A">Batch W-2026-A</option>
-                  <option value="Batch W-2026-B">Batch W-2026-B</option>
-                  <option value="Batch W-2026-C">Batch W-2026-C</option>
+                  {availableAttendanceBatches.map(b => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
                 </select>
                 <ChevronRight className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none rotate-90" />
               </div>
+
+              {/* Sync Data Button for Mentors */}
+              <button
+                onClick={() => {
+                  resetData();
+                  alert('Data synced! Batch RK-Gurukul-DS and student records updated.');
+                }}
+                title="Click to sync new batches and refresh student records"
+                className="py-2 px-3 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-600 font-extrabold text-[11px] flex items-center space-x-1.5 transition-all shadow-sm active:scale-95"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Sync Data</span>
+              </button>
             </div>
           </div>
 
@@ -596,19 +1041,19 @@ export const MentorDashboard: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50/90 text-slate-500 uppercase font-extrabold text-[11px] tracking-wider border-b border-slate-200/80">
-                  <th className="py-3.5 px-4">Student Info</th>
-                  <th className="py-3.5 px-4">Domain & Specialization</th>
-                  <th className="py-3.5 px-4">Batch & College</th>
-                  <th className="py-3.5 px-4">Total Fee</th>
-                  <th className="py-3.5 px-4">Paid Amount</th>
-                  <th className="py-3.5 px-4">Pending Due</th>
-                  <th className="py-3.5 px-4">Fee Status</th>
-                  <th className="py-3.5 px-4 text-right">Fee Action</th>
+                <tr className="bg-slate-50/90 text-slate-500 uppercase font-extrabold text-[10px] tracking-wider border-b border-slate-200/80">
+                  <th className="py-2.5 px-3">Student Info</th>
+                  <th className="py-2.5 px-3">Domain & Specialization</th>
+                  <th className="py-2.5 px-3">Batch & College</th>
+                  <th className="py-2.5 px-3">Total Fee</th>
+                  <th className="py-2.5 px-3">Paid Amount</th>
+                  <th className="py-2.5 px-3">Pending Due</th>
+                  <th className="py-2.5 px-3">Fee Status</th>
+                  <th className="py-2.5 px-3 text-right">Fee Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
-                {filteredStudents.length === 0 ? (
+                {paginatedStudents.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="py-12 text-center text-slate-400">
                       <div className="flex flex-col items-center justify-center space-y-2">
@@ -618,7 +1063,7 @@ export const MentorDashboard: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredStudents.map((std) => {
+                  paginatedStudents.map((std) => {
                     const fee = std.feeDetails || { totalFee: 15000, paidAmount: 0, pendingAmount: 15000, status: 'Unpaid' };
                     
                     const getDomainBadgeStyle = (domainName: string) => {
@@ -652,7 +1097,7 @@ export const MentorDashboard: React.FC = () => {
                     return (
                       <tr key={std.id} className="hover:bg-slate-50/80 transition-colors group">
                         {/* Student Info with Avatar */}
-                        <td className="py-3.5 px-4">
+                        <td className="py-2.5 px-3">
                           <div className="flex items-center space-x-3">
                             <div className={`w-9 h-9 rounded-2xl bg-gradient-to-br ${getAvatarGradient(std.name)} flex items-center justify-center font-black text-xs shadow-sm flex-shrink-0`}>
                               {std.name.charAt(0)}
@@ -676,15 +1121,15 @@ export const MentorDashboard: React.FC = () => {
                         </td>
 
                         {/* Domain Tag Pill */}
-                        <td className="py-3.5 px-4">
-                          <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-extrabold border transition-colors ${getDomainBadgeStyle(std.domain)}`}>
+                        <td className="py-2.5 px-3">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold border transition-colors ${getDomainBadgeStyle(std.domain)}`}>
                             <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                             <span>{std.domain}</span>
                           </span>
                         </td>
 
                         {/* Batch & College */}
-                        <td className="py-3.5 px-4">
+                        <td className="py-2.5 px-3">
                           <div>
                             <span className="inline-block px-2 py-0.5 bg-slate-100 text-slate-700 font-bold rounded-md text-[10px] border border-slate-200/60 mb-0.5">
                               {std.batch}
@@ -697,19 +1142,19 @@ export const MentorDashboard: React.FC = () => {
                         </td>
 
                         {/* Total Fee */}
-                        <td className="py-3.5 px-4 font-black text-slate-900 text-xs font-mono">
+                        <td className="py-2.5 px-3 font-black text-slate-900 text-xs font-mono">
                           ₹{fee.totalFee.toLocaleString('en-IN')}
                         </td>
 
                         {/* Paid Amount */}
-                        <td className="py-3.5 px-4">
+                        <td className="py-2.5 px-3">
                           <span className="font-black text-emerald-600 text-xs font-mono flex items-center space-x-1">
                             <span>₹{fee.paidAmount.toLocaleString('en-IN')}</span>
                           </span>
                         </td>
 
                         {/* Pending Due */}
-                        <td className="py-3.5 px-4">
+                        <td className="py-2.5 px-3">
                           {fee.pendingAmount > 0 ? (
                             <span className="font-black text-rose-600 text-xs font-mono bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200/80 inline-block shadow-2xs">
                               ₹{fee.pendingAmount.toLocaleString('en-IN')}
@@ -722,7 +1167,7 @@ export const MentorDashboard: React.FC = () => {
                         </td>
 
                         {/* Fee Status Badge */}
-                        <td className="py-3.5 px-4">
+                        <td className="py-2.5 px-3">
                           {fee.status === 'Paid' ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -745,13 +1190,13 @@ export const MentorDashboard: React.FC = () => {
                         </td>
 
                         {/* Record Payment Button */}
-                        <td className="py-3.5 px-4 text-right">
+                        <td className="py-2.5 px-3 text-right">
                           <button
                             onClick={() => {
                               setSelectedStudentForFee(std);
                               setShowFeeModal(true);
                             }}
-                            className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-[11px] font-extrabold transition-all shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 flex items-center space-x-1.5 ml-auto whitespace-nowrap cursor-pointer active:scale-95 border border-emerald-500/20"
+                            className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-[10px] font-extrabold transition-all shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 flex items-center space-x-1.5 ml-auto whitespace-nowrap cursor-pointer active:scale-95 border border-emerald-500/20"
                           >
                             <DollarSign className="w-3.5 h-3.5 stroke-[2.5]" />
                             <span>Record Payment</span>
@@ -765,25 +1210,52 @@ export const MentorDashboard: React.FC = () => {
             </table>
           </div>
 
-          {/* Bottom Summary Bar */}
-          <div className="bg-slate-50/90 px-6 py-4 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="px-4 py-3 border-t border-slate-200/80 bg-white flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             <div className="text-slate-500 font-bold flex items-center space-x-2">
               <Users className="w-4 h-4 text-orange-500" />
-              <span>Showing <strong className="text-slate-900">{filteredStudents.length}</strong> of <strong className="text-slate-900">{students.length}</strong> students</span>
+              <span>Showing <strong className="text-slate-900">{Math.min((currentStudentPage - 1) * studentsPerPage + 1, filteredFeeStudents.length)}</strong> - <strong className="text-slate-900">{Math.min(currentStudentPage * studentsPerPage, filteredFeeStudents.length)}</strong> of <strong className="text-slate-900">{filteredFeeStudents.length}</strong> students</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                disabled={currentStudentPage === 1}
+                onClick={() => setStudentPage((p) => Math.max(1, p - 1))}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-[10px]"
+              >
+                Prev
+              </button>
+              <span className="text-[10px] font-extrabold text-slate-700 px-2">
+                {currentStudentPage} / {totalStudentPages}
+              </span>
+              <button
+                disabled={currentStudentPage === totalStudentPages}
+                onClick={() => setStudentPage((p) => Math.min(totalStudentPages, p + 1))}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-[10px]"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+
+          {/* Bottom Summary Bar */}
+          <div className="bg-slate-50/90 px-4 py-3 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="text-slate-500 font-bold flex items-center space-x-2">
+              <Users className="w-4 h-4 text-orange-500" />
+              <span>Showing <strong className="text-slate-900">{filteredFeeStudents.length}</strong> of <strong className="text-slate-900">{students.length}</strong> students</span>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 text-xs">
               <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-200/80 shadow-2xs flex items-center space-x-2">
                 <span className="text-slate-500 font-medium">Total Pool:</span>
-                <span className="font-black text-slate-900 font-mono">₹{filteredStudents.reduce((acc, s) => acc + (s.feeDetails?.totalFee || 15000), 0).toLocaleString('en-IN')}</span>
+                <span className="font-black text-slate-900 font-mono">₹{filteredFeeStudents.reduce((acc, s) => acc + (s.feeDetails?.totalFee || 15000), 0).toLocaleString('en-IN')}</span>
               </div>
               <div className="bg-emerald-50/90 px-3 py-1.5 rounded-xl border border-emerald-200/80 shadow-2xs flex items-center space-x-2">
                 <span className="text-emerald-700 font-bold">Collected:</span>
-                <span className="font-black text-emerald-700 font-mono">₹{filteredStudents.reduce((acc, s) => acc + (s.feeDetails?.paidAmount || 0), 0).toLocaleString('en-IN')}</span>
+                <span className="font-black text-emerald-700 font-mono">₹{filteredFeeStudents.reduce((acc, s) => acc + (s.feeDetails?.paidAmount || 0), 0).toLocaleString('en-IN')}</span>
               </div>
               <div className="bg-rose-50/90 px-3 py-1.5 rounded-xl border border-rose-200/80 shadow-2xs flex items-center space-x-2">
                 <span className="text-rose-700 font-bold">Dues:</span>
-                <span className="font-black text-rose-700 font-mono">₹{filteredStudents.reduce((acc, s) => acc + (s.feeDetails?.pendingAmount || 0), 0).toLocaleString('en-IN')}</span>
+                <span className="font-black text-rose-700 font-mono">₹{filteredFeeStudents.reduce((acc, s) => acc + (s.feeDetails?.pendingAmount || 0), 0).toLocaleString('en-IN')}</span>
               </div>
             </div>
           </div>

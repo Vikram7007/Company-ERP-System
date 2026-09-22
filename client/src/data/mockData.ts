@@ -176,8 +176,8 @@ export const INITIAL_DOMAINS: Domain[] = [
   },
   {
     id: 'dom-2',
-    name: 'Artificial Intelligence & Deep Learning',
-    category: 'Data & AI',
+    name: 'Artificial Intelligence and Machine Learning',
+    category: 'Artificial Intelligence and Machine Learning',
     iconName: 'Bot',
     studentsEnrolled: 189,
     durationWeeks: 12,
@@ -597,7 +597,7 @@ export const INITIAL_STUDENTS: Student[] = [
     phone: '+91 98765 43210',
     domain: 'MERN Stack Development',
     batch: 'Batch W-2026-A',
-    mentorName: 'Dr. Rajesh Verma',
+    mentorName: 'Vikram Lale',
     profileCompletion: 95,
     attendancePercentage: 96,
     assignmentsSubmitted: 8,
@@ -627,7 +627,7 @@ export const INITIAL_STUDENTS: Student[] = [
     phone: '+91 98123 45678',
     domain: 'Artificial Intelligence & Deep Learning',
     batch: 'Batch W-2026-B',
-    mentorName: 'Prof. Ankit Mehta',
+    mentorName: 'Vaishanavi Bhandure',
     profileCompletion: 90,
     attendancePercentage: 92,
     assignmentsSubmitted: 7,
@@ -656,7 +656,7 @@ export const INITIAL_STUDENTS: Student[] = [
     phone: '+91 97654 32109',
     domain: 'DevOps & Cloud Computing (AWS/Docker)',
     batch: 'Batch W-2026-A',
-    mentorName: 'Priya Sundaram',
+    mentorName: 'Komal Sasane',
     profileCompletion: 85,
     attendancePercentage: 88,
     assignmentsSubmitted: 6,
@@ -683,7 +683,7 @@ export const INITIAL_STUDENTS: Student[] = [
     phone: '+91 99887 76655',
     domain: 'UI/UX Design & Product Strategy',
     batch: 'Batch W-2026-C',
-    mentorName: 'Kavita Reddy',
+    mentorName: 'Vikram Lale',
     profileCompletion: 100,
     attendancePercentage: 98,
     assignmentsSubmitted: 8,
@@ -710,7 +710,7 @@ export const INITIAL_STUDENTS: Student[] = [
     phone: '+91 91234 56789',
     domain: 'MERN Stack Development',
     batch: 'Batch W-2026-A',
-    mentorName: 'Dr. Rajesh Verma',
+    mentorName: 'Vikram Lale',
     profileCompletion: 88,
     attendancePercentage: 90,
     assignmentsSubmitted: 7,
@@ -725,6 +725,222 @@ export const INITIAL_STUDENTS: Student[] = [
       pendingAmount: 15000,
       status: 'Unpaid',
       transactions: []
+    }
+  },
+  {
+    id: 'std-201',
+    userId: 'usr-student-201',
+    name: 'Omkar Deshmukh',
+    email: 'omkar.deshmukh@gurukul.edu',
+    phone: '+91 98234 11223',
+    domain: 'Data Science & Data Analytics',
+    batch: 'Batch RK-Gurukul-DS',
+    mentorName: 'Aishwarya Kadam',
+    profileCompletion: 95,
+    attendancePercentage: 96,
+    assignmentsSubmitted: 8,
+    totalAssignments: 8,
+    averageGrade: '95%',
+    joinedDate: '2026-08-01',
+    status: 'Active',
+    college: 'Gurukul Campus Pune',
+    feeDetails: {
+      totalFee: 3000,
+      paidAmount: 3000,
+      pendingAmount: 0,
+      status: 'Paid',
+      transactions: [
+        { id: 'tx-201', amount: 3000, date: '2026-08-01', paymentMode: 'UPI / GPay', receiptNo: 'GURUKUL-REC-101' }
+      ]
+    }
+  },
+  {
+    id: 'std-202',
+    userId: 'usr-student-202',
+    name: 'Radhika Kulkarni',
+    email: 'radhika.kulkarni@gurukul.edu',
+    phone: '+91 98901 22334',
+    domain: 'Data Science & Data Analytics',
+    batch: 'Batch RK-Gurukul-DS',
+    mentorName: 'Aishwarya Kadam',
+    profileCompletion: 92,
+    attendancePercentage: 94,
+    assignmentsSubmitted: 7,
+    totalAssignments: 8,
+    averageGrade: '92%',
+    joinedDate: '2026-08-01',
+    status: 'Active',
+    college: 'Gurukul Campus Nashik',
+    feeDetails: {
+      totalFee: 3000,
+      paidAmount: 3000,
+      pendingAmount: 0,
+      status: 'Paid',
+      transactions: [
+        { id: 'tx-202', amount: 3000, date: '2026-08-01', paymentMode: 'UPI / GPay', receiptNo: 'GURUKUL-REC-102' }
+      ]
+    }
+  },
+  {
+    id: 'std-203',
+    userId: 'usr-student-203',
+    name: 'Prathamesh Patil',
+    email: 'prathamesh.patil@gurukul.edu',
+    phone: '+91 97632 33445',
+    domain: 'Data Science & Data Analytics',
+    batch: 'Batch RK-Gurukul-DS',
+    mentorName: 'Aishwarya Kadam',
+    profileCompletion: 88,
+    attendancePercentage: 90,
+    assignmentsSubmitted: 6,
+    totalAssignments: 8,
+    averageGrade: '88%',
+    joinedDate: '2026-08-05',
+    status: 'Active',
+    college: 'Gurukul Campus Kolhapur',
+    feeDetails: {
+      totalFee: 3000,
+      paidAmount: 3000,
+      pendingAmount: 0,
+      status: 'Paid',
+      transactions: [
+        { id: 'tx-203', amount: 3000, date: '2026-08-05', paymentMode: 'UPI / GPay', receiptNo: 'GURUKUL-REC-103' }
+      ]
+    }
+  },
+  {
+    id: 'std-204',
+    userId: 'usr-student-204',
+    name: 'Sanket Jadhav',
+    email: 'sanket.jadhav@gurukul.edu',
+    phone: '+91 99214 44556',
+    domain: 'Data Science & Data Analytics',
+    batch: 'Batch RK-Gurukul-DS',
+    mentorName: 'Aishwarya Kadam',
+    profileCompletion: 90,
+    attendancePercentage: 92,
+    assignmentsSubmitted: 7,
+    totalAssignments: 8,
+    averageGrade: '90%',
+    joinedDate: '2026-08-05',
+    status: 'Active',
+    college: 'Gurukul Campus Chhatrapati Sambhajinagar',
+    feeDetails: {
+      totalFee: 3000,
+      paidAmount: 3000,
+      pendingAmount: 0,
+      status: 'Paid',
+      transactions: [
+        { id: 'tx-204', amount: 3000, date: '2026-08-05', paymentMode: 'Bank Transfer / NEFT', receiptNo: 'GURUKUL-REC-104' }
+      ]
+    }
+  },
+  {
+    id: 'std-205',
+    userId: 'usr-student-205',
+    name: 'Tanvi Sawant',
+    email: 'tanvi.sawant@gurukul.edu',
+    phone: '+91 98605 55667',
+    domain: 'Data Science & Data Analytics',
+    batch: 'Batch RK-Gurukul-DS',
+    mentorName: 'Aishwarya Kadam',
+    profileCompletion: 96,
+    attendancePercentage: 98,
+    assignmentsSubmitted: 8,
+    totalAssignments: 8,
+    averageGrade: '96%',
+    joinedDate: '2026-08-08',
+    status: 'Active',
+    college: 'Gurukul Campus Thane',
+    feeDetails: {
+      totalFee: 3000,
+      paidAmount: 3000,
+      pendingAmount: 0,
+      status: 'Paid',
+      transactions: [
+        { id: 'tx-205', amount: 3000, date: '2026-08-08', paymentMode: 'UPI / GPay', receiptNo: 'GURUKUL-REC-105' }
+      ]
+    }
+  },
+  {
+    id: 'std-206',
+    userId: 'usr-student-206',
+    name: 'Vaibhav Shinde',
+    email: 'vaibhav.shinde@gurukul.edu',
+    phone: '+91 97621 66778',
+    domain: 'Data Science & Data Analytics',
+    batch: 'Batch RK-Gurukul-DS',
+    mentorName: 'Aishwarya Kadam',
+    profileCompletion: 82,
+    attendancePercentage: 86,
+    assignmentsSubmitted: 5,
+    totalAssignments: 8,
+    averageGrade: '84%',
+    joinedDate: '2026-08-10',
+    status: 'Active',
+    college: 'Gurukul Campus Satara',
+    feeDetails: {
+      totalFee: 3000,
+      paidAmount: 3000,
+      pendingAmount: 0,
+      status: 'Paid',
+      transactions: [
+        { id: 'tx-206', amount: 3000, date: '2026-08-10', paymentMode: 'UPI / GPay', receiptNo: 'GURUKUL-REC-106' }
+      ]
+    }
+  },
+  {
+    id: 'std-207',
+    userId: 'usr-student-207',
+    name: 'Sakshi Pawar',
+    email: 'sakshi.pawar@gurukul.edu',
+    phone: '+91 95452 77889',
+    domain: 'Data Science & Data Analytics',
+    batch: 'Batch RK-Gurukul-DS',
+    mentorName: 'Aishwarya Kadam',
+    profileCompletion: 93,
+    attendancePercentage: 95,
+    assignmentsSubmitted: 7,
+    totalAssignments: 8,
+    averageGrade: '93%',
+    joinedDate: '2026-08-10',
+    status: 'Active',
+    college: 'Gurukul Campus Nagpur',
+    feeDetails: {
+      totalFee: 3000,
+      paidAmount: 3000,
+      pendingAmount: 0,
+      status: 'Paid',
+      transactions: [
+        { id: 'tx-207', amount: 3000, date: '2026-08-10', paymentMode: 'UPI / GPay', receiptNo: 'GURUKUL-REC-107' }
+      ]
+    }
+  },
+  {
+    id: 'std-208',
+    userId: 'usr-student-208',
+    name: 'Rushikesh Joshi',
+    email: 'rushikesh.joshi@gurukul.edu',
+    phone: '+91 98811 88990',
+    domain: 'Data Science & Data Analytics',
+    batch: 'Batch RK-Gurukul-DS',
+    mentorName: 'Aishwarya Kadam',
+    profileCompletion: 90,
+    attendancePercentage: 92,
+    assignmentsSubmitted: 6,
+    totalAssignments: 8,
+    averageGrade: '90%',
+    joinedDate: '2026-08-12',
+    status: 'Active',
+    college: 'Gurukul Campus Pune',
+    feeDetails: {
+      totalFee: 3000,
+      paidAmount: 3000,
+      pendingAmount: 0,
+      status: 'Paid',
+      transactions: [
+        { id: 'tx-208', amount: 3000, date: '2026-08-12', paymentMode: 'UPI / GPay', receiptNo: 'GURUKUL-REC-108' }
+      ]
     }
   }
 ];
@@ -791,38 +1007,50 @@ export const INITIAL_APPLICATIONS: StudentApplication[] = [
 export const INITIAL_MENTORS: Mentor[] = [
   {
     id: 'mnt-1',
-    name: 'Dr. Rajesh Verma',
-    email: 'rajesh.verma@websums.com',
+    name: 'Vaishanavi Bhandure',
+    email: 'vaishanavi.bhandure@websums.com',
     phone: '+91 98000 11122',
-    assignedDomains: ['MERN Stack Development', 'Full Stack Java Development'],
-    activeBatches: ['Batch W-2026-A', 'Batch W-2026-D'],
-    totalStudents: 145,
+    assignedDomains: ['Artificial Intelligence & Deep Learning', 'Machine Learning'],
+    activeBatches: ['Batch W-2026-B'],
+    totalStudents: 120,
     rating: 4.9,
     joinedDate: '2025-01-15',
     status: 'Active'
   },
   {
     id: 'mnt-2',
-    name: 'Prof. Ankit Mehta',
-    email: 'ankit.mehta@websums.com',
-    phone: '+91 98000 33344',
-    assignedDomains: ['Artificial Intelligence & Deep Learning', 'Machine Learning'],
-    activeBatches: ['Batch W-2026-B'],
-    totalStudents: 110,
-    rating: 4.8,
-    joinedDate: '2025-03-01',
+    name: 'Vikram Lale',
+    email: 'vikram.lale@websums.com',
+    phone: '+91 98000 22233',
+    assignedDomains: ['MERN Stack Development', 'Full Stack Java Development'],
+    activeBatches: ['Batch W-2026-A', 'Batch W-2026-D'],
+    totalStudents: 145,
+    rating: 4.95,
+    joinedDate: '2025-02-01',
     status: 'Active'
   },
   {
     id: 'mnt-3',
-    name: 'Priya Sundaram',
-    email: 'priya.sundaram@websums.com',
-    phone: '+91 98000 55566',
-    assignedDomains: ['DevOps & Cloud Computing (AWS/Docker)', 'Cyber Security & Ethical Hacking'],
-    activeBatches: ['Batch W-2026-A', 'Batch W-2026-C'],
-    totalStudents: 95,
-    rating: 4.95,
-    joinedDate: '2025-02-10',
+    name: 'Aishwarya Kadam',
+    email: 'aishwarya.kadam@websums.com',
+    phone: '+91 98000 33344',
+    assignedDomains: ['Data Science & Data Analytics'],
+    activeBatches: ['Batch RK-Gurukul-DS'],
+    totalStudents: 140,
+    rating: 4.85,
+    joinedDate: '2025-03-01',
+    status: 'Active'
+  },
+  {
+    id: 'mnt-4',
+    name: 'Komal Sasane',
+    email: 'komal.sasane@websums.com',
+    phone: '+91 98000 44455',
+    assignedDomains: ['Web Development', 'UI/UX Design & Product Strategy'],
+    activeBatches: ['Batch W-2026-C'],
+    totalStudents: 110,
+    rating: 4.9,
+    joinedDate: '2025-03-15',
     status: 'Active'
   }
 ];
@@ -833,7 +1061,7 @@ export const INITIAL_LIVE_CLASSES: LiveClass[] = [
     title: 'Enterprise MERN Architecture & Redux Toolkit state sync',
     domain: 'MERN Stack Development',
     batch: 'Batch W-2026-A',
-    mentorName: 'Dr. Rajesh Verma',
+    mentorName: 'Vikram Lale',
     date: '2026-07-28',
     time: '18:00 IST',
     durationMinutes: 90,
@@ -846,7 +1074,7 @@ export const INITIAL_LIVE_CLASSES: LiveClass[] = [
     title: 'Transformer Models & Attention Mechanism in PyTorch',
     domain: 'Artificial Intelligence & Deep Learning',
     batch: 'Batch W-2026-B',
-    mentorName: 'Prof. Ankit Mehta',
+    mentorName: 'Vaishanavi Bhandure',
     date: '2026-07-28',
     time: '20:00 IST',
     durationMinutes: 90,
@@ -859,7 +1087,7 @@ export const INITIAL_LIVE_CLASSES: LiveClass[] = [
     title: 'Dockerizing Microservices & Container Networking',
     domain: 'DevOps & Cloud Computing (AWS/Docker)',
     batch: 'Batch W-2026-A',
-    mentorName: 'Priya Sundaram',
+    mentorName: 'Aishwarya Kadam',
     date: '2026-07-27',
     time: '17:00 IST',
     durationMinutes: 60,

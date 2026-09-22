@@ -38,7 +38,7 @@ export const HeroSection: React.FC<Props> = ({ onApply, onVerify }) => {
   }, [currentText, isDeleting, wordIndex]);
 
   return (
-    <section className="relative overflow-hidden pt-16 pb-24 bg-gradient-to-b from-orange-50/80 via-white to-orange-50/30 rounded-[2.5rem] border border-orange-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+    <section className="relative overflow-hidden pt-10 pb-10 bg-gradient-to-b from-orange-50/80 via-white to-orange-50/30 rounded-[2.5rem] border border-orange-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
       
       {/* Decorative Warm Blur Orbs */}
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-orange-400/10 rounded-full blur-[100px] pointer-events-none animate-pulse duration-[4000ms]"></div>
@@ -47,7 +47,7 @@ export const HeroSection: React.FC<Props> = ({ onApply, onVerify }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Top Pill Badge */}
-        <div className="flex justify-center mb-6">
+        <div className="flex justify-center mb-4">
           <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold shadow-sm animate-pulse">
             <Sparkles className="w-3.5 h-3.5 text-orange-500" />
             <span>ISO 9001:2025 Certified Enterprise Internship Portal</span>
@@ -55,7 +55,7 @@ export const HeroSection: React.FC<Props> = ({ onApply, onVerify }) => {
         </div>
 
         {/* Hero Title & Subheading */}
-        <div className="text-center max-w-4xl mx-auto space-y-6 relative z-20">
+        <div className="text-center max-w-4xl mx-auto space-y-4 relative z-20">
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-snug sm:leading-tight">
             Accelerate Your Tech Career with <br className="hidden md:block" />
             <span className="inline-flex min-w-[220px] sm:min-w-[280px] md:min-w-[340px] justify-center mt-2 md:mt-0 md:mr-3">
@@ -70,7 +70,7 @@ export const HeroSection: React.FC<Props> = ({ onApply, onVerify }) => {
           </p>
 
           {/* CTA Button Group */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-5 pt-6">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-5 pt-2">
             <button
               onClick={onApply}
               className="w-full sm:w-auto px-8 py-4 text-sm font-bold text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 rounded-full shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 hover:-translate-y-1 transition-all duration-300 flex items-center justify-center space-x-2 group"
@@ -89,7 +89,7 @@ export const HeroSection: React.FC<Props> = ({ onApply, onVerify }) => {
           </div>
 
           {/* Quick Stats Banner */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-5 pt-16 max-w-4xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5 pt-10 max-w-4xl mx-auto">
             <div className="bg-white/90 backdrop-blur-sm py-2 px-3 rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-orange-200/60 hover:-translate-y-1.5 transition-all duration-300 text-center group cursor-default">
               <div className="text-3xl font-black text-slate-900 group-hover:text-orange-600 transition-colors">10,000+</div>
               <div className="text-[11px] uppercase tracking-wider text-slate-500 font-bold mt-1">Interns Trained</div>

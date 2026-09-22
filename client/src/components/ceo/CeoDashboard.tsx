@@ -31,7 +31,8 @@ import {
   Mail,
   Phone,
   Download,
-  CalendarCheck
+  CalendarCheck,
+  RefreshCw
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell 
@@ -39,6 +40,7 @@ import {
 import { INITIAL_DOMAINS, INITIAL_LIVE_CLASSES, INITIAL_CERTIFICATES, INITIAL_ANNOUNCEMENTS, ANALYTICS_GRAPH_DATA } from '../../data/mockData';
 import { Student, Mentor, LiveClass, Certificate, StudentApplication } from '../../types';
 import { useData } from '../../context/DataContext';
+import { useAuth } from '../../context/AuthContext';
 import { AddMentorModal } from './AddMentorModal';
 import { PdfResumeModal } from '../common/PdfResumeModal';
 import { RecordPaymentModal } from '../common/RecordPaymentModal';
@@ -46,7 +48,8 @@ import { AttendanceReportPreviewModal } from '../common/AttendanceReportPreviewM
 import { generateAttendancePDF } from '../../utils/pdfGenerator';
 
 export const CeoDashboard: React.FC = () => {
-  const { mentors, students, applications, addStudent, updateApplicationStatus, attendanceReports } = useData();
+  const { user } = useAuth();
+  const { mentors, students, applications, addStudent, updateApplicationStatus, attendanceReports, resetData } = useData();
 
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'students' | 'mentors' | 'applications' | 'attendance' | 'live-classes' | 'certificates'>('overview');
   const [reportDateFilter, setReportDateFilter] = useState('');
@@ -55,6 +58,8 @@ export const CeoDashboard: React.FC = () => {
   const [studentSearch, setStudentSearch] = useState('');
   const [selectedBatch, setSelectedBatch] = useState<string>('All');
   const [feeStatusFilter, setFeeStatusFilter] = useState<string>('All');
+  const [studentPage, setStudentPage] = useState(1);
+  const studentsPerPage = 8;
 
   const [appSearch, setAppSearch] = useState('');
   const [appStatusFilter, setAppStatusFilter] = useState<string>('All');
@@ -73,6 +78,14 @@ export const CeoDashboard: React.FC = () => {
 
   // Time Filter for Analytics
   const [timeFilter, setTimeFilter] = useState<'Today' | 'Week' | 'Month' | 'Year'>('Week');
+
+  const availableBatches = Array.from(new Set([
+    'Batch RK-Gurukul-DS',
+    'Batch W-2026-A',
+    'Batch W-2026-B',
+    'Batch W-2026-C',
+    ...students.map(s => s.batch).filter(Boolean)
+  ]));
 
   // Form for new student creation
   const [newStudent, setNewStudent] = useState({
@@ -93,17 +106,37 @@ export const CeoDashboard: React.FC = () => {
 
   // Export handlers
   const handleExportCSV = () => {
-    const headers = 'ID,Name,Email,Domain,Batch,Total Fee,Paid Amount,Pending Dues,Fee Status,Attendance %,Status\n';
-    const rows = students.map(s => {
+    const exportRows = filteredStudents.length > 0 ? filteredStudents : students;
+    const headers = ['Student Name', 'Email', 'Phone', 'Domain', 'Batch', 'College', 'Total Fee', 'Paid Amount', 'Pending Due', 'Fee Status'];
+    const rows = exportRows.map(s => {
       const f = s.feeDetails || { totalFee: 15000, paidAmount: 0, pendingAmount: 15000, status: 'Unpaid' };
-      return `${s.id},"${s.name}",${s.email},"${s.domain}",${s.batch},₹${f.totalFee},₹${f.paidAmount},₹${f.pendingAmount},${f.status},${s.attendancePercentage}%,${s.status}`;
-    }).join('\n');
-    const blob = new Blob([headers + rows], { type: 'text/csv' });
+      return [
+        s.name,
+        s.email,
+        s.phone,
+        s.domain,
+        s.batch,
+        s.college || '',
+        f.totalFee,
+        f.paidAmount,
+        f.pendingAmount,
+        f.status || 'Unpaid'
+      ];
+    });
+
+    const csvData = [headers, ...rows]
+      .map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvData], { type: 'application/vnd.ms-excel;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'Websums_Students_Financial_Report.csv';
+    a.download = 'Websums_Student_Fee_Report.csv';
+    document.body.appendChild(a);
     a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   };
 
   const handleAddStudentSubmit = (e: React.FormEvent) => {
@@ -132,12 +165,16 @@ export const CeoDashboard: React.FC = () => {
   };
 
   const filteredStudents = students.filter(s => {
-    const matchesSearch = s.name.toLowerCase().includes(studentSearch.toLowerCase()) || s.email.toLowerCase().includes(studentSearch.toLowerCase());
+    const matchesSearch = s.domain.toLowerCase().includes(studentSearch.toLowerCase());
     const matchesBatch = selectedBatch === 'All' || s.batch === selectedBatch;
     const feeStatus = s.feeDetails?.status || 'Unpaid';
     const matchesFee = feeStatusFilter === 'All' || feeStatus === feeStatusFilter;
     return matchesSearch && matchesBatch && matchesFee;
   });
+
+  const totalStudentPages = Math.max(1, Math.ceil(filteredStudents.length / studentsPerPage));
+  const currentStudentPage = Math.min(studentPage, totalStudentPages);
+  const paginatedStudents = filteredStudents.slice((currentStudentPage - 1) * studentsPerPage, currentStudentPage * studentsPerPage);
 
   const filteredApplications = applications.filter(a => {
     const matchesSearch = a.applicantName.toLowerCase().includes(appSearch.toLowerCase()) || a.email.toLowerCase().includes(appSearch.toLowerCase()) || a.domain.toLowerCase().includes(appSearch.toLowerCase());
@@ -159,74 +196,104 @@ export const CeoDashboard: React.FC = () => {
     <div className="space-y-6">
       
       {/* Top Header Banner */}
-      <div className="bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 rounded-3xl p-6 text-white shadow-lg shadow-orange-400/15 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center space-x-2 text-orange-950/80 text-xs font-extrabold uppercase tracking-widest mb-1">
-            <ShieldCheck className="w-4 h-4 text-amber-900" />
-            <span>Executive Command Center</span>
+      <div className="relative overflow-hidden rounded-[1.5rem] border border-[#ff8b33] bg-[#FF7600] p-5 text-white shadow-[0_14px_30px_rgba(255,118,0,0.22)] sm:p-6">
+        <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full border-[24px] border-white/10" />
+        <div className="relative flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="relative shrink-0">
+              <img
+                src={user?.avatar || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=240&q=85'}
+                alt="Shriram Thorat profile"
+                className="h-16 w-16 rounded-2xl border-2 border-white/80 object-cover shadow-lg sm:h-20 sm:w-20"
+              />
+              <span className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-[#FF7600] bg-emerald-400" title="Online" />
+            </div>
+            <div className="min-w-0">
+              <div className="mb-2 flex items-center gap-2 text-[0.7rem] font-bold uppercase tracking-[0.12em] text-white/80">
+                <ShieldCheck className="h-4 w-4 shrink-0" />
+                <span className="truncate">Executive Command Center</span>
+              </div>
+              <h2 className="text-[1.65rem] font-extrabold leading-tight tracking-[-0.02em] sm:text-[2.1rem]">
+                CEO Portal
+              </h2>
+              <p className="mt-1 text-xs font-medium text-white/85 sm:text-sm">
+                Shriram Thorat <span className="mx-1 text-white/50">•</span> Websums Software Pvt. Ltd.
+              </p>
+            </div>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black tracking-tight">CEO Portal • Websums Software Pvt. Ltd.</h2>
-          <p className="text-xs text-orange-950/90 mt-1 font-medium">Real-time enterprise analytics, mentor load, student fee tracking & incoming applicant records.</p>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 xl:justify-end">
           <button
             onClick={() => setShowAddMentorModal(true)}
-            className="px-4 py-2.5 text-xs font-bold bg-white/25 hover:bg-white/35 text-white rounded-2xl backdrop-blur-md border border-white/40 transition-all flex items-center space-x-1.5 shadow-sm"
+            className="flex items-center gap-2 rounded-xl border border-white/45 bg-white/15 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-white/25 sm:text-sm"
           >
             <UserPlus className="w-4 h-4" />
-            <span>+ Add Mentor</span>
+            <span>Add Mentor</span>
           </button>
 
           <button
             onClick={handleExportCSV}
-            className="px-4 py-2.5 text-xs font-bold bg-white/25 hover:bg-white/35 text-white rounded-2xl backdrop-blur-md border border-white/40 transition-all flex items-center space-x-1.5 shadow-sm"
+            className="flex items-center gap-2 rounded-xl border border-white/45 bg-white/15 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-white/25 sm:text-sm"
           >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-100" />
+            <FileSpreadsheet className="w-4 h-4 text-white" />
             <span>Export Excel</span>
           </button>
           
           <button
             onClick={() => setShowAddStudentModal(true)}
-            className="px-5 py-2.5 text-xs font-bold bg-white text-orange-600 hover:bg-orange-50 rounded-2xl shadow-md transition-all flex items-center space-x-1.5"
+            className="flex items-center gap-2 rounded-xl border border-white bg-white px-4 py-2.5 text-xs font-bold text-[#C65300] shadow-[0_8px_20px_rgba(115,42,0,0.18)] transition-all hover:bg-orange-50 sm:text-sm"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 text-[#FF7600]" />
             <span>Add New Student</span>
           </button>
+          </div>
         </div>
+        <p className="relative mt-5 max-w-2xl text-xs font-medium leading-relaxed text-white/75">
+          Real-time enterprise analytics, mentor load, student fee tracking and incoming applicant records.
+        </p>
       </div>
 
       {/* CEO Navigation Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3 text-xs font-bold">
+      <div className="flex flex-wrap items-center gap-3 pb-2 text-sm font-bold">
         <button
           onClick={() => setActiveSubTab('overview')}
-          className={`px-4 py-2.5 rounded-2xl transition-all ${
-            activeSubTab === 'overview' ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-sm shadow-orange-300/40' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+          className={`px-4 py-2.5 rounded-full border transition-all flex items-center gap-2 ${
+            activeSubTab === 'overview'
+              ? 'bg-[#FF7600] text-white border-[#FF7600] shadow-sm'
+              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
           }`}
         >
-          📊 Overview & Revenue
+          <span>📊</span>
+          <span>Overview & Revenue</span>
         </button>
         <button
           onClick={() => setActiveSubTab('students')}
-          className={`px-4 py-2.5 rounded-2xl transition-all ${
-            activeSubTab === 'students' ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-sm shadow-orange-300/40' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+          className={`px-4 py-2.5 rounded-full border transition-all flex items-center gap-2 ${
+            activeSubTab === 'students'
+              ? 'bg-[#FF7600] text-white border-[#FF7600] shadow-sm'
+              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
           }`}
         >
-          🎓 Students & Fees ({students.length})
+          <span>🎓</span>
+          <span>Students & Fees ({students.length})</span>
         </button>
         <button
           onClick={() => setActiveSubTab('applications')}
-          className={`px-4 py-2.5 rounded-2xl transition-all flex items-center space-x-1.5 ${
-            activeSubTab === 'applications' ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-sm shadow-orange-300/40' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+          className={`px-4 py-2.5 rounded-full border transition-all flex items-center gap-2 ${
+            activeSubTab === 'applications'
+              ? 'bg-[#FF7600] text-white border-[#FF7600] shadow-sm'
+              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
           }`}
         >
           <Inbox className="w-4 h-4" />
-          <span>📥 Applications & Leads ({applications.length})</span>
+          <span>Applications & Leads ({applications.length})</span>
         </button>
         <button
           onClick={() => setActiveSubTab('attendance')}
-          className={`px-4 py-2.5 rounded-2xl transition-all flex items-center space-x-1.5 ${
-            activeSubTab === 'attendance' ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-sm shadow-orange-300/40' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+          className={`px-4 py-2.5 rounded-full border transition-all flex items-center gap-2 ${
+            activeSubTab === 'attendance'
+              ? 'bg-[#FF7600] text-white border-[#FF7600] shadow-sm'
+              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
           }`}
         >
           <CalendarCheck className="w-4 h-4" />
@@ -234,27 +301,36 @@ export const CeoDashboard: React.FC = () => {
         </button>
         <button
           onClick={() => setActiveSubTab('mentors')}
-          className={`px-4 py-2.5 rounded-2xl transition-all ${
-            activeSubTab === 'mentors' ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-sm shadow-orange-300/40' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+          className={`px-4 py-2.5 rounded-full border transition-all flex items-center gap-2 ${
+            activeSubTab === 'mentors'
+              ? 'bg-[#f59e0b] text-white border-[#f59e0b] shadow-sm'
+              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
           }`}
         >
-          👨‍🏫 Mentors ({mentors.length})
+          <span>👨‍🏫</span>
+          <span>Mentors ({mentors.length})</span>
         </button>
         <button
           onClick={() => setActiveSubTab('live-classes')}
-          className={`px-4 py-2.5 rounded-2xl transition-all ${
-            activeSubTab === 'live-classes' ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-sm shadow-orange-300/40' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+          className={`px-4 py-2.5 rounded-full border transition-all flex items-center gap-2 ${
+            activeSubTab === 'live-classes'
+              ? 'bg-[#f59e0b] text-white border-[#f59e0b] shadow-sm'
+              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
           }`}
         >
-          📅 Live Classes ({INITIAL_LIVE_CLASSES.length})
+          <span>📅</span>
+          <span>Live Classes ({INITIAL_LIVE_CLASSES.length})</span>
         </button>
         <button
           onClick={() => setActiveSubTab('certificates')}
-          className={`px-4 py-2.5 rounded-2xl transition-all ${
-            activeSubTab === 'certificates' ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-sm shadow-orange-300/40' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+          className={`px-4 py-2.5 rounded-full border transition-all flex items-center gap-2 ${
+            activeSubTab === 'certificates'
+              ? 'bg-[#f59e0b] text-white border-[#f59e0b] shadow-sm'
+              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
           }`}
         >
-          📜 Issued Certificates
+          <span>📜</span>
+          <span>Issued Certificates</span>
         </button>
       </div>
 
@@ -382,42 +458,42 @@ export const CeoDashboard: React.FC = () => {
           <div className="h-1.5 w-full bg-gradient-to-r from-orange-500 via-amber-500 to-emerald-500"></div>
 
           {/* Header & Controls Section */}
-          <div className="p-6 pb-5 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white">
+          <div className="p-4 pb-3 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white">
             <div>
-              <div className="flex items-center space-x-2">
-                <h3 className="text-lg font-black text-slate-900 tracking-tight">Registered Students Directory & Company Fee Records</h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-orange-100 text-orange-700 border border-orange-200">
+              <div className="flex items-center flex-wrap gap-2">
+                <h3 className="text-[1.05rem] font-black text-slate-900 tracking-tight leading-tight">Registered Students Directory & Company Fee Records</h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-orange-100 text-orange-700 border border-orange-200">
                   {filteredStudents.length} Active Records
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5 font-medium">Track total course fees, payments made, pending balances and manage records in real time</p>
+              <p className="text-[11px] text-slate-500 mt-1 font-medium">Track total course fees, payments made, pending balances and manage records in real time</p>
             </div>
             
-            <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
               
               {/* Time Range Filter */}
               <div className="flex items-center bg-slate-50 p-1 rounded-2xl border border-slate-200 w-full sm:w-auto">
                 <button 
                   onClick={() => setTimeFilter('Today')}
-                  className={`flex-1 sm:flex-none px-3 py-1.5 text-[11px] font-extrabold rounded-xl transition-all ${timeFilter === 'Today' ? 'bg-white text-orange-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'}`}
+                  className={`flex-1 sm:flex-none px-2.5 py-1.5 text-[10px] font-extrabold rounded-lg transition-all ${timeFilter === 'Today' ? 'bg-white text-orange-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'}`}
                 >
                   Today
                 </button>
                 <button 
                   onClick={() => setTimeFilter('Week')}
-                  className={`flex-1 sm:flex-none px-3 py-1.5 text-[11px] font-extrabold rounded-xl transition-all ${timeFilter === 'Week' ? 'bg-white text-orange-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'}`}
+                  className={`flex-1 sm:flex-none px-2.5 py-1.5 text-[10px] font-extrabold rounded-lg transition-all ${timeFilter === 'Week' ? 'bg-white text-orange-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'}`}
                 >
                   This Week
                 </button>
                 <button 
                   onClick={() => setTimeFilter('Month')}
-                  className={`flex-1 sm:flex-none px-3 py-1.5 text-[11px] font-extrabold rounded-xl transition-all ${timeFilter === 'Month' ? 'bg-white text-orange-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'}`}
+                  className={`flex-1 sm:flex-none px-2.5 py-1.5 text-[10px] font-extrabold rounded-lg transition-all ${timeFilter === 'Month' ? 'bg-white text-orange-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'}`}
                 >
                   This Month
                 </button>
                 <button 
                   onClick={() => setTimeFilter('Year')}
-                  className={`flex-1 sm:flex-none px-3 py-1.5 text-[11px] font-extrabold rounded-xl transition-all ${timeFilter === 'Year' ? 'bg-white text-orange-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'}`}
+                  className={`flex-1 sm:flex-none px-2.5 py-1.5 text-[10px] font-extrabold rounded-lg transition-all ${timeFilter === 'Year' ? 'bg-white text-orange-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'}`}
                 >
                   This Year
                 </button>
@@ -430,8 +506,11 @@ export const CeoDashboard: React.FC = () => {
                   type="text"
                   placeholder="Search by student name or email..."
                   value={studentSearch}
-                  onChange={(e) => setStudentSearch(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2.5 text-xs rounded-2xl border border-slate-200 bg-slate-50/80 focus:bg-white focus:outline-none focus:border-orange-500 transition-all font-medium text-slate-800 placeholder:text-slate-400"
+                  onChange={(e) => {
+                    setStudentSearch(e.target.value);
+                    setStudentPage(1);
+                  }}
+                  className="w-full pl-9 pr-8 py-2 text-[11px] rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white focus:outline-none focus:border-orange-500 transition-all font-medium text-slate-800 placeholder:text-slate-400"
                 />
                 {studentSearch && (
                   <button 
@@ -447,8 +526,11 @@ export const CeoDashboard: React.FC = () => {
               <div className="relative">
                 <select
                   value={feeStatusFilter}
-                  onChange={(e) => setFeeStatusFilter(e.target.value)}
-                  className="py-2.5 pl-3 pr-8 text-xs rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-white font-extrabold text-slate-700 cursor-pointer focus:outline-none focus:border-orange-500 transition-all appearance-none"
+                  onChange={(e) => {
+                    setFeeStatusFilter(e.target.value);
+                    setStudentPage(1);
+                  }}
+                  className="py-2 pl-3 pr-8 text-[11px] rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-white font-extrabold text-slate-700 cursor-pointer focus:outline-none focus:border-orange-500 transition-all appearance-none"
                 >
                   <option value="All">All Fee Status</option>
                   <option value="Paid">✅ Fully Paid</option>
@@ -462,16 +544,32 @@ export const CeoDashboard: React.FC = () => {
               <div className="relative">
                 <select
                   value={selectedBatch}
-                  onChange={(e) => setSelectedBatch(e.target.value)}
-                  className="py-2.5 pl-3 pr-8 text-xs rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-white font-extrabold text-slate-700 cursor-pointer focus:outline-none focus:border-orange-500 transition-all appearance-none"
+                  onChange={(e) => {
+                    setSelectedBatch(e.target.value);
+                    setStudentPage(1);
+                  }}
+                  className="py-2 pl-3 pr-8 text-[11px] rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-white font-extrabold text-slate-700 cursor-pointer focus:outline-none focus:border-orange-500 transition-all appearance-none"
                 >
                   <option value="All">All Batches</option>
-                  <option value="Batch W-2026-A">Batch W-2026-A</option>
-                  <option value="Batch W-2026-B">Batch W-2026-B</option>
-                  <option value="Batch W-2026-C">Batch W-2026-C</option>
+                  {availableBatches.map(b => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
                 </select>
                 <ChevronRight className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none rotate-90" />
               </div>
+
+              {/* Sync Data Button to reload new batches & initial data */}
+              <button
+                onClick={() => {
+                  resetData();
+                  alert('Data synced! Batch RK-Gurukul-DS and all updated student records are now live.');
+                }}
+                title="Click to sync new batches and refresh student records"
+                className="py-2 px-3 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-600 font-extrabold text-[11px] flex items-center space-x-1.5 transition-all shadow-sm active:scale-95"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Sync Data</span>
+              </button>
             </div>
           </div>
 
@@ -479,19 +577,19 @@ export const CeoDashboard: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50/90 text-slate-500 uppercase font-extrabold text-[11px] tracking-wider border-b border-slate-200/80">
-                  <th className="py-3.5 px-4">Student Info</th>
-                  <th className="py-3.5 px-4">Domain & Specialization</th>
-                  <th className="py-3.5 px-4">Batch & College</th>
-                  <th className="py-3.5 px-4">Total Fee</th>
-                  <th className="py-3.5 px-4">Paid Amount</th>
-                  <th className="py-3.5 px-4">Pending Due</th>
-                  <th className="py-3.5 px-4">Fee Status</th>
-                  <th className="py-3.5 px-4 text-right">Fee Action</th>
+                <tr className="bg-slate-50/90 text-slate-500 uppercase font-extrabold text-[10px] tracking-wider border-b border-slate-200/80">
+                  <th className="py-2.5 px-3">Student Info</th>
+                  <th className="py-2.5 px-3">Domain & Specialization</th>
+                  <th className="py-2.5 px-3">Batch & College</th>
+                  <th className="py-2.5 px-3">Total Fee</th>
+                  <th className="py-2.5 px-3">Paid Amount</th>
+                  <th className="py-2.5 px-3">Pending Due</th>
+                  <th className="py-2.5 px-3">Fee Status</th>
+                  <th className="py-2.5 px-3 text-right">Fee Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
-                {filteredStudents.length === 0 ? (
+                {paginatedStudents.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="py-12 text-center text-slate-400">
                       <div className="flex flex-col items-center justify-center space-y-2">
@@ -501,7 +599,7 @@ export const CeoDashboard: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredStudents.map((std) => {
+                  paginatedStudents.map((std) => {
                     const fee = std.feeDetails || { totalFee: 15000, paidAmount: 0, pendingAmount: 15000, status: 'Unpaid' };
                     
                     // Dynamic Domain pill badge styling
@@ -537,7 +635,7 @@ export const CeoDashboard: React.FC = () => {
                     return (
                       <tr key={std.id} className="hover:bg-slate-50/80 transition-colors group">
                         {/* Student Info with Avatar */}
-                        <td className="py-3.5 px-4">
+                        <td className="py-2.5 px-3">
                           <div className="flex items-center space-x-3">
                             <div className={`w-9 h-9 rounded-2xl bg-gradient-to-br ${getAvatarGradient(std.name)} flex items-center justify-center font-black text-xs shadow-sm flex-shrink-0`}>
                               {std.name.charAt(0)}
@@ -561,15 +659,15 @@ export const CeoDashboard: React.FC = () => {
                         </td>
 
                         {/* Domain Tag Pill */}
-                        <td className="py-3.5 px-4">
-                          <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-extrabold border transition-colors ${getDomainBadgeStyle(std.domain)}`}>
+                        <td className="py-2.5 px-3">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold border transition-colors ${getDomainBadgeStyle(std.domain)}`}>
                             <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                             <span>{std.domain}</span>
                           </span>
                         </td>
 
                         {/* Batch & College */}
-                        <td className="py-3.5 px-4">
+                        <td className="py-2.5 px-3">
                           <div>
                             <span className="inline-block px-2 py-0.5 bg-slate-100 text-slate-700 font-bold rounded-md text-[10px] border border-slate-200/60 mb-0.5">
                               {std.batch}
@@ -582,19 +680,19 @@ export const CeoDashboard: React.FC = () => {
                         </td>
 
                         {/* Total Fee */}
-                        <td className="py-3.5 px-4 font-black text-slate-900 text-xs font-mono">
+                        <td className="py-2.5 px-3 font-black text-slate-900 text-xs font-mono">
                           ₹{fee.totalFee.toLocaleString('en-IN')}
                         </td>
 
                         {/* Paid Amount */}
-                        <td className="py-3.5 px-4">
+                        <td className="py-2.5 px-3">
                           <span className="font-black text-emerald-600 text-xs font-mono flex items-center space-x-1">
                             <span>₹{fee.paidAmount.toLocaleString('en-IN')}</span>
                           </span>
                         </td>
 
                         {/* Pending Due */}
-                        <td className="py-3.5 px-4">
+                        <td className="py-2.5 px-3">
                           {fee.pendingAmount > 0 ? (
                             <span className="font-black text-rose-600 text-xs font-mono bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200/80 inline-block shadow-2xs">
                               ₹{fee.pendingAmount.toLocaleString('en-IN')}
@@ -607,7 +705,7 @@ export const CeoDashboard: React.FC = () => {
                         </td>
 
                         {/* Fee Status Badge */}
-                        <td className="py-3.5 px-4">
+                        <td className="py-2.5 px-3">
                           {fee.status === 'Paid' ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -630,13 +728,13 @@ export const CeoDashboard: React.FC = () => {
                         </td>
 
                         {/* Record Payment Button */}
-                        <td className="py-3.5 px-4 text-right">
+                        <td className="py-2.5 px-3 text-right">
                           <button
                             onClick={() => {
                               setSelectedStudentForFee(std);
                               setShowFeeModal(true);
                             }}
-                            className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-[11px] font-extrabold transition-all shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 flex items-center space-x-1.5 ml-auto whitespace-nowrap cursor-pointer active:scale-95 border border-emerald-500/20"
+                            className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-[10px] font-extrabold transition-all shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 flex items-center space-x-1.5 ml-auto whitespace-nowrap cursor-pointer active:scale-95 border border-emerald-500/20"
                           >
                             <DollarSign className="w-3.5 h-3.5 stroke-[2.5]" />
                             <span>Record Payment</span>
@@ -650,8 +748,35 @@ export const CeoDashboard: React.FC = () => {
             </table>
           </div>
 
+          <div className="px-4 py-3 border-t border-slate-200/80 bg-white flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="text-slate-500 font-bold flex items-center space-x-2">
+              <Users className="w-4 h-4 text-orange-500" />
+              <span>Showing <strong className="text-slate-900">{Math.min((currentStudentPage - 1) * studentsPerPage + 1, filteredStudents.length)}</strong> - <strong className="text-slate-900">{Math.min(currentStudentPage * studentsPerPage, filteredStudents.length)}</strong> of <strong className="text-slate-900">{filteredStudents.length}</strong> students</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                disabled={currentStudentPage === 1}
+                onClick={() => setStudentPage((p) => Math.max(1, p - 1))}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-[10px]"
+              >
+                Prev
+              </button>
+              <span className="text-[10px] font-extrabold text-slate-700 px-2">
+                {currentStudentPage} / {totalStudentPages}
+              </span>
+              <button
+                disabled={currentStudentPage === totalStudentPages}
+                onClick={() => setStudentPage((p) => Math.min(totalStudentPages, p + 1))}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-[10px]"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+
           {/* Bottom Summary Bar */}
-          <div className="bg-slate-50/90 px-6 py-4 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="bg-slate-50/90 px-4 py-3 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             <div className="text-slate-500 font-bold flex items-center space-x-2">
               <Users className="w-4 h-4 text-orange-500" />
               <span>Showing <strong className="text-slate-900">{filteredStudents.length}</strong> of <strong className="text-slate-900">{students.length}</strong> students</span>

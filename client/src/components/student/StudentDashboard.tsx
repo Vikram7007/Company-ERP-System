@@ -172,9 +172,14 @@ export const StudentDashboard: React.FC = () => {
     ? Math.round(completedQuizzes.reduce((acc, q) => acc + (q.bestScore || 80), 0) / completedQuizzes.length)
     : 82;
 
-  // Video Modal, Search & View Mode
+  // Video Modal, Search & View Mode + Pagination
   const [playingVideo, setPlayingVideo] = useState<string | null>(null);
   const [videoViewMode, setVideoViewMode] = useState<'grid' | 'list'>('grid');
+  const [videoPage, setVideoPage] = useState(1);
+  const [videoSearch, setVideoSearch] = useState('');
+
+  // Pagination for Assignments
+  const [assignmentPage, setAssignmentPage] = useState(1);
 
   const getVideoSourceBadge = (url: string) => {
     if (!url) return null;
@@ -307,14 +312,22 @@ export const StudentDashboard: React.FC = () => {
         </div>
 
         {/* Center Search Bar */}
-        <div className="relative max-w-sm w-full hidden md:block shrink">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+        <form
+          onSubmit={(event) => event.preventDefault()}
+          className="relative hidden w-full max-w-sm shrink md:block"
+        >
+          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder={`Search ${studentDomain} syllabus, lectures...`}
-            className="w-full pl-10 pr-4 py-2 text-xs bg-slate-50 border border-slate-200/80 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:bg-white text-slate-900 font-medium placeholder-slate-400 shadow-2xs transition-all"
+            value={videoSearch}
+            onChange={(event) => {
+              setVideoSearch(event.target.value);
+              setVideoPage(1);
+            }}
+            className="w-full rounded-full border border-slate-200 bg-white py-2.5 pl-11 pr-4 text-xs font-medium text-slate-900 shadow-sm outline-none transition-all placeholder:text-slate-400 hover:border-slate-300 focus:border-orange-400 focus:ring-4 focus:ring-orange-500/10"
           />
-        </div>
+        </form>
 
         {/* Right Controls: Domain Switcher + Notifications + Profile Avatar */}
         <div className="flex items-center space-x-3 shrink-0 ml-auto lg:ml-0">
@@ -916,7 +929,7 @@ export const StudentDashboard: React.FC = () => {
           </div>
 
           {/* Expandable Weekly Modules List */}
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[620px] overflow-y-auto pr-1.5 scrollbar-thin">
             {currentDomainObj.syllabus.map((w) => {
               const isExpanded = expandedWeek === w.week;
               const statusColor = 
@@ -1063,220 +1076,346 @@ export const StudentDashboard: React.FC = () => {
       )}
 
       {/* 3. LECTURES & NOTES TAB */}
-      {activeTab === 'lectures' && (
-        <div className="space-y-6">
-          
-          {/* Header */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-2.5">
-                <div className="w-9 h-9 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center">
-                  <Video className="w-5 h-5" />
-                </div>
-                <span>{studentDomain} Video Lectures & Notes</span>
-              </h2>
-              <p className="text-xs text-slate-500 font-medium mt-1">
-                Access recorded lectures, Zoom sessions, and downloadable study notes strictly for {studentDomain}.
-              </p>
-            </div>
+      {activeTab === 'lectures' && (() => {
+        const filteredLectures = domainLectures.filter(l => 
+          l.title.toLowerCase().includes(videoSearch.toLowerCase()) || 
+          (l.domain && l.domain.toLowerCase().includes(videoSearch.toLowerCase()))
+        );
+        const videosPerPage = videoViewMode === 'grid' ? 6 : 4;
+        const totalVideoPages = Math.ceil(filteredLectures.length / videosPerPage) || 1;
+        const currentVPage = Math.min(videoPage, totalVideoPages);
+        const paginatedLectures = filteredLectures.slice((currentVPage - 1) * videosPerPage, currentVPage * videosPerPage);
 
-            {/* View Toggle */}
-            <div className="flex items-center space-x-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
-              <button
-                onClick={() => setVideoViewMode('grid')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${videoViewMode === 'grid' ? 'bg-white text-orange-600 shadow-xs' : 'text-slate-600'}`}
-              >
-                Grid View
-              </button>
-              <button
-                onClick={() => setVideoViewMode('list')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${videoViewMode === 'list' ? 'bg-white text-orange-600 shadow-xs' : 'text-slate-600'}`}
-              >
-                List View
-              </button>
-            </div>
-          </div>
-
-          {/* Empty State check */}
-          {domainLectures.length === 0 ? (
-            <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-4">
-              <Video className="w-12 h-12 text-slate-300 mx-auto" />
-              <h3 className="text-base font-extrabold text-slate-800">No Video Lectures Recorded Yet</h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Recorded lectures for <strong>{studentDomain}</strong> will be automatically uploaded here after live sessions complete.
-              </p>
-            </div>
-          ) : (
-            <div className={videoViewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5' : 'space-y-4'}>
-              {domainLectures.map((lec) => (
-                <div key={lec.id} className="bg-white rounded-3xl border border-slate-200 hover:border-orange-300 shadow-xs hover:shadow-md transition-all overflow-hidden flex flex-col justify-between group">
-                  <div className="relative aspect-video bg-slate-900 overflow-hidden">
-                    <img src={lec.thumbnailUrl} alt={lec.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90" />
-                    <div className="absolute top-3 left-3">{getVideoSourceBadge(lec.videoUrl)}</div>
-                    <div className="absolute bottom-3 right-3 bg-black/70 px-2.5 py-0.5 rounded text-[10px] font-bold text-white">
-                      🕒 {lec.duration}
-                    </div>
+        return (
+          <div className="space-y-6">
+            
+            {/* Header Toolbar */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center">
+                    <Video className="w-5 h-5" />
                   </div>
+                  <span>{studentDomain} Video Lectures & Notes</span>
+                </h2>
+                <p className="text-xs text-slate-500 font-medium mt-1">
+                  Access recorded lectures, Zoom sessions, and downloadable study notes strictly for {studentDomain}.
+                </p>
+              </div>
 
-                  <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">
-                    <div>
-                      <span className="text-[10px] font-extrabold text-orange-700 bg-orange-50 px-2.5 py-0.5 rounded border border-orange-200">
-                        Week {lec.week}
-                      </span>
-                      <h4 className="font-extrabold text-slate-900 text-sm mt-1">{lec.title}</h4>
-                      <p className="text-xs text-slate-500 font-medium">Domain: {lec.domain}</p>
+              {/* Controls: Search Bar & View Toggle */}
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Lecture Search Input */}
+                <div className="relative flex-1 min-w-[180px]">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search lecture..."
+                    value={videoSearch}
+                    onChange={(e) => {
+                      setVideoSearch(e.target.value);
+                      setVideoPage(1);
+                    }}
+                    className="w-full pl-8 pr-3 py-1.5 text-xs font-medium bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500"
+                  />
+                </div>
+
+                {/* View Toggle */}
+                <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
+                  <button
+                    onClick={() => {
+                      setVideoViewMode('grid');
+                      setVideoPage(1);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${videoViewMode === 'grid' ? 'bg-white text-orange-600 shadow-xs' : 'text-slate-600'}`}
+                  >
+                    Grid View
+                  </button>
+                  <button
+                    onClick={() => {
+                      setVideoViewMode('list');
+                      setVideoPage(1);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${videoViewMode === 'list' ? 'bg-white text-orange-600 shadow-xs' : 'text-slate-600'}`}
+                  >
+                    List View
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Empty State check */}
+            {filteredLectures.length === 0 ? (
+              <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-4">
+                <Video className="w-12 h-12 text-slate-300 mx-auto" />
+                <h3 className="text-base font-extrabold text-slate-800">No Video Lectures Found</h3>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  No recorded lectures for <strong>{studentDomain}</strong> match your search query.
+                </p>
+              </div>
+            ) : (
+              <div className="max-h-[580px] overflow-y-auto pr-1.5 scrollbar-thin">
+                <div className={videoViewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5' : 'space-y-4'}>
+                  {paginatedLectures.map((lec) => (
+                    <div key={lec.id} className="bg-white rounded-3xl border border-slate-200 hover:border-orange-300 shadow-xs hover:shadow-md transition-all overflow-hidden flex flex-col justify-between group">
+                      <div className="relative aspect-video bg-slate-900 overflow-hidden">
+                        <img src={lec.thumbnailUrl} alt={lec.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90" />
+                        <div className="absolute top-3 left-3">{getVideoSourceBadge(lec.videoUrl)}</div>
+                        <div className="absolute bottom-3 right-3 bg-black/70 px-2.5 py-0.5 rounded text-[10px] font-bold text-white">
+                          🕒 {lec.duration}
+                        </div>
+                      </div>
+
+                      <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">
+                        <div>
+                          <span className="text-[10px] font-extrabold text-orange-700 bg-orange-50 px-2.5 py-0.5 rounded border border-orange-200">
+                            Week {lec.week}
+                          </span>
+                          <h4 className="font-extrabold text-slate-900 text-sm mt-1">{lec.title}</h4>
+                          <p className="text-xs text-slate-500 font-medium">Domain: {lec.domain}</p>
+                        </div>
+
+                        <div className="flex items-center space-x-2 pt-2 border-t border-slate-100">
+                          <button
+                            onClick={() => setPlayingVideo(lec.videoUrl)}
+                            className="flex-1 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-extrabold transition-all flex items-center justify-center space-x-1.5"
+                          >
+                            <Play className="w-3.5 h-3.5 fill-white" />
+                            <span>Watch Video</span>
+                          </button>
+
+                          <a
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              showToast('success', 'Study notes downloaded successfully!');
+                            }}
+                            className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all"
+                            title="Download Study Notes"
+                          >
+                            <Download className="w-4 h-4" />
+                          </a>
+                        </div>
+                      </div>
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-                    <div className="flex items-center space-x-2 pt-2 border-t border-slate-100">
+            {/* Pagination Controls for Video Lectures */}
+            {totalVideoPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200 text-xs font-bold text-slate-600">
+                <div className="text-slate-500 text-xs">
+                  Showing <span className="font-black text-slate-800">{(currentVPage - 1) * videosPerPage + 1}</span> to <span className="font-black text-slate-800">{Math.min(currentVPage * videosPerPage, filteredLectures.length)}</span> of <span className="font-black text-slate-800">{filteredLectures.length}</span> lectures
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    disabled={currentVPage === 1}
+                    onClick={() => setVideoPage(p => Math.max(p - 1, 1))}
+                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs font-bold shadow-xs cursor-pointer"
+                  >
+                    Previous
+                  </button>
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: totalVideoPages }, (_, i) => i + 1).map((pg) => (
                       <button
-                        onClick={() => setPlayingVideo(lec.videoUrl)}
-                        className="flex-1 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-extrabold transition-all flex items-center justify-center space-x-1.5"
+                        key={pg}
+                        onClick={() => setVideoPage(pg)}
+                        className={`w-7 h-7 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                          currentVPage === pg
+                            ? 'bg-orange-500 text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
                       >
-                        <Play className="w-3.5 h-3.5 fill-white" />
-                        <span>Watch Video</span>
+                        {pg}
                       </button>
-
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          showToast('success', 'Study notes downloaded successfully!');
-                        }}
-                        className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all"
-                        title="Download Study Notes"
-                      >
-                        <Download className="w-4 h-4" />
-                      </a>
-                    </div>
+                    ))}
                   </div>
+                  <button
+                    disabled={currentVPage === totalVideoPages}
+                    onClick={() => setVideoPage(p => Math.min(p + 1, totalVideoPages))}
+                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs font-bold shadow-xs cursor-pointer"
+                  >
+                    Next
+                  </button>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            )}
 
-        </div>
-      )}
+          </div>
+        );
+      })()}
 
       {/* 4. ASSIGNMENTS TAB */}
-      {activeTab === 'assignments' && (
-        <div className="space-y-6 max-w-[1300px] mx-auto">
-          
-          {/* Header */}
-          <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-1">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
-                  <FileText className="w-5 h-5" />
+      {activeTab === 'assignments' && (() => {
+        const assignmentsPerPage = 4;
+        const totalAssignmentPages = Math.ceil(domainAssignments.length / assignmentsPerPage) || 1;
+        const currentAPage = Math.min(assignmentPage, totalAssignmentPages);
+        const paginatedAssignments = domainAssignments.slice((currentAPage - 1) * assignmentsPerPage, currentAPage * assignmentsPerPage);
+
+        return (
+          <div className="space-y-6 max-w-[1300px] mx-auto">
+            
+            {/* Header */}
+            <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-1">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">{studentDomain} Assignments</h2>
                 </div>
-                <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">{studentDomain} Assignments</h2>
+                <p className="text-xs text-slate-500 font-medium pl-11">
+                  Complete domain assignments and submit your GitHub repository or Google Drive links.
+                </p>
               </div>
-              <p className="text-xs text-slate-500 font-medium pl-11">
-                Complete domain assignments and submit your GitHub repository or Google Drive links.
-              </p>
+
+              <div className="flex items-center space-x-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+                <div className="text-right">
+                  <span className="text-xs font-extrabold text-slate-900">{submittedAssignments.length} / {domainAssignments.length || 8} Completed</span>
+                  <div className="w-28 bg-slate-200 h-1.5 rounded-full overflow-hidden mt-1">
+                    <div className="bg-blue-600 h-full rounded-full" style={{ width: `${(submittedAssignments.length / (domainAssignments.length || 8)) * 100}%` }}></div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="flex items-center space-x-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
-              <div className="text-right">
-                <span className="text-xs font-extrabold text-slate-900">{submittedAssignments.length} / {domainAssignments.length || 8} Completed</span>
-                <div className="w-28 bg-slate-200 h-1.5 rounded-full overflow-hidden mt-1">
-                  <div className="bg-blue-600 h-full rounded-full" style={{ width: `${(submittedAssignments.length / (domainAssignments.length || 8)) * 100}%` }}></div>
-                </div>
-              </div>
-            </div>
-          </div>
+            {/* Assignment Cards in Bounded Container */}
+            <div className="max-h-[580px] overflow-y-auto pr-1.5 scrollbar-thin">
+              <div className="space-y-4">
+                {paginatedAssignments.map((asg) => {
+                  const isSubmitted = submittedAssignments.includes(asg.id);
+                  const subDetail = submissionDetails[asg.id];
+                  const isEditing = resubmittingId === asg.id;
+                  const isSubmitting = submittingId === asg.id;
+                  const currentLinkInput = submissionLinks[asg.id] ?? (subDetail?.link || '');
 
-          {/* Assignment Cards */}
-          <div className="space-y-4">
-            {domainAssignments.map((asg) => {
-              const isSubmitted = submittedAssignments.includes(asg.id);
-              const subDetail = submissionDetails[asg.id];
-              const isEditing = resubmittingId === asg.id;
-              const isSubmitting = submittingId === asg.id;
-              const currentLinkInput = submissionLinks[asg.id] ?? (subDetail?.link || '');
+                  return (
+                    <div key={asg.id} className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs space-y-4">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-[10px] font-black text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded border border-blue-200">
+                              Due: {asg.dueDate || '2026-08-30'}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-500">Max Marks: {asg.maxMarks || 100}</span>
+                          </div>
+                          <h3 className="text-base font-extrabold text-slate-900 mt-1">{asg.title}</h3>
+                          <p className="text-xs text-slate-600 font-medium">{asg.description}</p>
+                        </div>
 
-              return (
-                <div key={asg.id} className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs space-y-4">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-[10px] font-black text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded border border-blue-200">
-                          Due: {asg.dueDate || '2026-08-30'}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-500">Max Marks: {asg.maxMarks || 100}</span>
+                        <div className="flex items-center space-x-2 shrink-0">
+                          {isSubmitted ? (
+                            <span className="px-3 py-1 rounded-xl text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              ✓ Submitted
+                            </span>
+                          ) : (
+                            <span className="px-3 py-1 rounded-xl text-xs font-black bg-amber-50 text-amber-700 border border-amber-200">
+                              Pending Submission
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <h3 className="text-base font-extrabold text-slate-900 mt-1">{asg.title}</h3>
-                      <p className="text-xs text-slate-600 font-medium">{asg.description}</p>
-                    </div>
 
-                    <div className="flex items-center space-x-2 shrink-0">
-                      {isSubmitted ? (
-                        <span className="px-3 py-1 rounded-xl text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          ✓ Submitted
-                        </span>
+                      {/* Submission Input Box */}
+                      {(!isSubmitted || isEditing) ? (
+                        <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                          <label className="text-xs font-bold text-slate-700">Submit GitHub Repository / Google Drive Link</label>
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <input
+                              type="text"
+                              value={currentLinkInput}
+                              onChange={(e) => setSubmissionLinks({ ...submissionLinks, [asg.id]: e.target.value })}
+                              placeholder="https://github.com/your-username/assignment-repo"
+                              className="flex-1 px-4 py-2.5 text-xs font-medium bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900"
+                            />
+                            <button
+                              onClick={() => handleAssignmentSubmit(asg.id)}
+                              disabled={isSubmitting}
+                              className="px-5 py-2.5 text-xs font-extrabold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all flex items-center justify-center space-x-2"
+                            >
+                              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                              <span>{isEditing ? 'Update Submission' : 'Submit Assignment'}</span>
+                            </button>
+                          </div>
+                        </div>
                       ) : (
-                        <span className="px-3 py-1 rounded-xl text-xs font-black bg-amber-50 text-amber-700 border border-amber-200">
-                          Pending Submission
-                        </span>
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                          <div>
+                            <p className="font-bold text-slate-700">Submitted Link:</p>
+                            <a href={subDetail?.link} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline font-mono">
+                              {subDetail?.link || 'https://github.com/student/repo'}
+                            </a>
+                          </div>
+
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => setResubmittingId(asg.id)}
+                              className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 font-bold rounded-xl"
+                            >
+                              Resubmit
+                            </button>
+                            {subDetail?.feedback && (
+                              <button
+                                onClick={() => setFeedbackModal({ title: asg.title, score: subDetail.marksObtained || 85, maxMarks: 100, feedback: subDetail.feedback || '' })}
+                                className="px-3 py-1.5 bg-purple-100 text-purple-800 font-extrabold rounded-xl"
+                              >
+                                View Feedback
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
-                  </div>
+                  );
+                })}
+              </div>
+            </div>
 
-                  {/* Submission Input Box */}
-                  {(!isSubmitted || isEditing) ? (
-                    <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                      <label className="text-xs font-bold text-slate-700">Submit GitHub Repository / Google Drive Link</label>
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <input
-                          type="text"
-                          value={currentLinkInput}
-                          onChange={(e) => setSubmissionLinks({ ...submissionLinks, [asg.id]: e.target.value })}
-                          placeholder="https://github.com/your-username/assignment-repo"
-                          className="flex-1 px-4 py-2.5 text-xs font-medium bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900"
-                        />
-                        <button
-                          onClick={() => handleAssignmentSubmit(asg.id)}
-                          disabled={isSubmitting}
-                          className="px-5 py-2.5 text-xs font-extrabold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all flex items-center justify-center space-x-2"
-                        >
-                          {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                          <span>{isEditing ? 'Update Submission' : 'Submit Assignment'}</span>
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                      <div>
-                        <p className="font-bold text-slate-700">Submitted Link:</p>
-                        <a href={subDetail?.link} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline font-mono">
-                          {subDetail?.link || 'https://github.com/student/repo'}
-                        </a>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => setResubmittingId(asg.id)}
-                          className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 font-bold rounded-xl"
-                        >
-                          Resubmit
-                        </button>
-                        {subDetail?.feedback && (
-                          <button
-                            onClick={() => setFeedbackModal({ title: asg.title, score: subDetail.marksObtained || 85, maxMarks: 100, feedback: subDetail.feedback || '' })}
-                            className="px-3 py-1.5 bg-purple-100 text-purple-800 font-extrabold rounded-xl"
-                          >
-                            View Feedback
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
+            {/* Pagination Controls for Assignments */}
+            {totalAssignmentPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200 text-xs font-bold text-slate-600">
+                <div className="text-slate-500 text-xs">
+                  Showing <span className="font-black text-slate-800">{(currentAPage - 1) * assignmentsPerPage + 1}</span> to <span className="font-black text-slate-800">{Math.min(currentAPage * assignmentsPerPage, domainAssignments.length)}</span> of <span className="font-black text-slate-800">{domainAssignments.length}</span> assignments
                 </div>
-              );
-            })}
-          </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    disabled={currentAPage === 1}
+                    onClick={() => setAssignmentPage(p => Math.max(p - 1, 1))}
+                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs font-bold shadow-xs cursor-pointer"
+                  >
+                    Previous
+                  </button>
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: totalAssignmentPages }, (_, i) => i + 1).map((pg) => (
+                      <button
+                        key={pg}
+                        onClick={() => setAssignmentPage(pg)}
+                        className={`w-7 h-7 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                          currentAPage === pg
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {pg}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    disabled={currentAPage === totalAssignmentPages}
+                    onClick={() => setAssignmentPage(p => Math.min(p + 1, totalAssignmentPages))}
+                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs font-bold shadow-xs cursor-pointer"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
 
-        </div>
-      )}
+          </div>
+        );
+      })()}
 
       {/* 5. MCQ QUIZ PLAYGROUND TAB */}
       {activeTab === 'quiz' && (

@@ -11,18 +11,21 @@ import { StudentDashboard } from './components/student/StudentDashboard';
 import { CertificateVerifierModal } from './components/common/CertificateVerifierModal';
 import { ApplicationModal } from './components/landing/ApplicationModal';
 import { AuthModal } from './components/common/AuthModal';
-import { ShieldCheck, UserCheck, GraduationCap, ArrowRight } from 'lucide-react';
+import { ShieldCheck, UserCheck, GraduationCap, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 const MainContent: React.FC = () => {
   const { user, role } = useAuth();
   const [activeView, setActiveView] = useState<string>('landing'); // 'landing' | 'dashboard'
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchVersion, setSearchVersion] = useState(0);
+  const [selectedDomainId, setSelectedDomainId] = useState<string | null>(null);
 
   // Modals state
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authDefaultRole, setAuthDefaultRole] = useState<'CEO' | 'Mentor' | 'Student'>('Student');
   const [showVerifierModal, setShowVerifierModal] = useState(false);
   const [showAppModal, setShowAppModal] = useState(false);
+  const [authToast, setAuthToast] = useState<string | null>(null);
 
   // Auto-switch view to dashboard when user logs in, or landing when user logs out
   React.useEffect(() => {
@@ -36,13 +39,23 @@ const MainContent: React.FC = () => {
     setShowAuthModal(true);
   };
 
-  const handleAuthSuccess = () => {
+  const handleAuthSuccess = (message?: string) => {
     setShowAuthModal(false);
     setActiveView('dashboard');
+    if (message) {
+      setAuthToast(message);
+      window.setTimeout(() => setAuthToast(null), 4000);
+    }
   };
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] flex flex-col font-sans selection:bg-orange-500 selection:text-white">
+      {authToast && (
+        <div className="fixed bottom-6 left-1/2 z-60 flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-sm font-bold text-emerald-700 shadow-2xl animate-in slide-in-from-bottom-3 fade-in">
+          <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+          <span>{authToast}</span>
+        </div>
+      )}
       
       {/* Top Navigation */}
       <Navbar
@@ -56,6 +69,7 @@ const MainContent: React.FC = () => {
         setActiveView={setActiveView}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
+        onSearch={() => setSearchVersion((version) => version + 1)}
       />
 
       {/* Main Workspace Area */}
@@ -71,6 +85,9 @@ const MainContent: React.FC = () => {
             <DomainGrid
               onSelectDomain={() => setShowAppModal(true)}
               onApply={() => setShowAppModal(true)}
+              selectedDomainId={selectedDomainId}
+              searchTerm={searchTerm}
+              searchVersion={searchVersion}
             />
             <TestimonialsSection />
           </div>
@@ -138,7 +155,7 @@ const MainContent: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <Footer />
+      <Footer onSelectDomain={setSelectedDomainId} />
 
       {/* Modals */}
       <AuthModal

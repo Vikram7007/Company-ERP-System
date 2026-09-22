@@ -5,6 +5,7 @@ interface AuthContextType {
   user: User | null;
   role: Role | 'Guest';
   login: (userData: User) => void;
+  loginWithCredentials: (email: string, password: string, role: Role) => Promise<void>;
   switchRole: (role: Role) => void;
   logout: () => void;
   isAuthenticated: boolean;
@@ -15,7 +16,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const DEMO_USERS: Record<Role, User> = {
   CEO: {
     id: 'usr-ceo-1',
-    name: 'Subhasis Roy (CEO)',
+    name: 'Shriram Thorat (CEO)',
     email: 'ceo@websums.com',
     role: 'CEO',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
@@ -23,11 +24,11 @@ const DEMO_USERS: Record<Role, User> = {
   },
   Mentor: {
     id: 'usr-mentor-1',
-    name: 'Dr. Rajesh Verma',
+    name: 'Vikram Lale',
     email: 'mentor@websums.com',
     role: 'Mentor',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
-    phone: '+91 98000 11122',
+    phone: '+91 98000 22233',
     domain: 'MERN Stack Development'
   },
   Student: {
@@ -45,7 +46,13 @@ const DEMO_USERS: Record<Role, User> = {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('websums_user');
-    return saved ? JSON.parse(saved) : null;
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.role === 'CEO') parsed.name = 'Shriram Thorat (CEO)';
+      if (parsed.role === 'Mentor' && (parsed.name === 'Dr. Rajesh Verma' || !parsed.name)) parsed.name = 'Vikram Lale';
+      return parsed;
+    }
+    return null;
   });
 
   useEffect(() => {
@@ -58,6 +65,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = (userData: User) => {
     setUser(userData);
+  };
+
+  const loginWithCredentials = async (email: string, password: string, selectedRole: Role) => {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, role: selectedRole })
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Unable to sign in');
+    }
+    setUser({ ...result.data.user, token: result.data.token });
   };
 
   const switchRole = (newRole: Role) => {
@@ -74,6 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         role: user ? user.role : 'Guest',
         login,
+        loginWithCredentials,
         switchRole,
         logout,
         isAuthenticated: !!user

@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Mentor, Student, StudentApplication, FeeTransaction, Assignment, Submission, DailyAttendanceReport, AttendanceRecord, LiveClass, RecordedLecture, Quiz } from '../types';
 import { INITIAL_MENTORS, INITIAL_STUDENTS, INITIAL_APPLICATIONS, INITIAL_ASSIGNMENTS, INITIAL_LIVE_CLASSES, INITIAL_LECTURES, INITIAL_QUIZZES } from '../data/mockData';
+import { apiGet, apiPost, apiPatch } from '../utils/api';
 
 interface DataContextType {
   mentors: Mentor[];
   students: Student[];
   applications: StudentApplication[];
-  addMentor: (mentorData: Omit<Mentor, 'id' | 'totalStudents' | 'rating' | 'joinedDate'>) => void;
+  addMentor: (mentorData: Omit<Mentor, 'id' | 'totalStudents' | 'rating' | 'joinedDate'>) => Promise<void>;
   addStudent: (studentData: Omit<Student, 'id' | 'feeDetails'> & { totalFee?: number; paidAmount?: number }) => void;
   updateStudentFee: (studentId: string, additionalPayment: number, paymentMode: any, notes?: string) => void;
   addApplication: (appData: Omit<StudentApplication, 'id' | 'appliedDate' | 'status' | 'resumeFileName'>) => void;
@@ -24,6 +25,7 @@ interface DataContextType {
   addRecordedLecture: (lectureData: Omit<RecordedLecture, 'id' | 'viewsCount'>) => void;
   quizzes: Quiz[];
   updateQuizResult: (quizId: string, score: number, questionsAnswered: number) => void;
+  resetData: () => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -36,7 +38,22 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [students, setStudents] = useState<Student[]>(() => {
     const saved = localStorage.getItem('websums_students');
-    return saved ? JSON.parse(saved) : INITIAL_STUDENTS;
+    if (saved) {
+      try {
+        const parsed: Student[] = JSON.parse(saved);
+        const existingIds = new Set(parsed.map(s => s.id));
+        const missingInitial = INITIAL_STUDENTS.filter(s => !existingIds.has(s.id));
+        if (missingInitial.length > 0) {
+          const merged = [...parsed, ...missingInitial];
+          localStorage.setItem('websums_students', JSON.stringify(merged));
+          return merged;
+        }
+        return parsed;
+      } catch (err) {
+        return INITIAL_STUDENTS;
+      }
+    }
+    return INITIAL_STUDENTS;
   });
 
   const [applications, setApplications] = useState<StudentApplication[]>(() => {
@@ -45,8 +62,50 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   useEffect(() => {
+    // Auto-sync initial mentors with updated names & assigned domains
+    setMentors(INITIAL_MENTORS);
+    localStorage.setItem('websums_mentors', JSON.stringify(INITIAL_MENTORS));
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem('websums_mentors', JSON.stringify(mentors));
   }, [mentors]);
+
+  useEffect(() => {
+    // Auto-sync INITIAL_STUDENTS (e.g. RK Gurukul batch & paid fees) into state
+    setStudents((prev) => {
+      const existingIds = new Set(prev.map(s => s.id));
+      const missing = INITIAL_STUDENTS.filter(s => !existingIds.has(s.id));
+      
+      // Also update RK Gurukul DS students to Paid status
+      let hasChanges = missing.length > 0;
+      const updated = prev.map(s => {
+        if (s.batch === 'Batch RK-Gurukul-DS' && s.feeDetails?.status !== 'Paid') {
+          hasChanges = true;
+          return {
+            ...s,
+            feeDetails: {
+              totalFee: 3000,
+              paidAmount: 3000,
+              pendingAmount: 0,
+              status: 'Paid' as const,
+              transactions: s.feeDetails?.transactions?.length ? s.feeDetails.transactions : [
+                { id: `tx-sync-${s.id}`, amount: 3000, date: '2026-08-15', paymentMode: 'UPI / GPay' as const, receiptNo: `GURUKUL-REC-${s.id}` }
+              ]
+            }
+          };
+        }
+        return s;
+      });
+
+      if (hasChanges) {
+        const merged = [...updated, ...missing];
+        localStorage.setItem('websums_students', JSON.stringify(merged));
+        return merged;
+      }
+      return prev;
+    });
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('websums_students', JSON.stringify(students));
@@ -102,7 +161,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [recordedLectures]);
 
   // CEO capability: Add New Mentor
-  const addMentor = (mentorData: Omit<Mentor, 'id' | 'totalStudents' | 'rating' | 'joinedDate'>) => {
+  const addMentor = async (mentorData: Omit<Mentor, 'id' | 'totalStudents' | 'rating' | 'joinedDate'>) => {
     const newMentor: Mentor = {
       ...mentorData,
       id: `mnt-${Date.now()}`,
@@ -110,7 +169,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       rating: 5.0,
       joinedDate: new Date().toISOString().split('T')[0]
     };
-    setMentors((prev) => [newMentor, ...prev]);
+    const createdMentor = await apiPost<Mentor>('/api/mentors', newMentor);
+    setMentors((prev) => [createdMentor, ...prev]);
   };
 
   // CEO / Admin capability: Add New Student
@@ -140,6 +200,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
     setStudents((prev) => [newStudent, ...prev]);
+    apiPost<Student>('/api/students', newStudent).catch(console.error);
   };
 
   // Manual Fee Payment Tracker for Student Company Records
@@ -179,6 +240,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       })
     );
+    apiPost<Student>(`/api/students/${studentId}/payments`, { amount: additionalPayment, paymentMode, notes }).catch(console.error);
   };
 
   // Student Application Submission from Landing Page
@@ -192,6 +254,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       resumeUrl: appData.resumeUrl || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
     };
     setApplications((prev) => [newApp, ...prev]);
+    apiPost<StudentApplication>('/api/applications', newApp).catch(console.error);
   };
 
   // Status Manager for Applications (Accept / Reject / Pending)
@@ -202,6 +265,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { ...app, status: newStatus };
       })
     );
+    apiPatch<StudentApplication>(`/api/applications/${appId}/status`, { status: newStatus }).catch(console.error);
 
     // If accepted, automatically enroll student if not already present
     if (newStatus === 'Accepted') {
@@ -240,6 +304,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       totalSubmissions: 0
     };
     setAssignments(prev => [newAsg, ...prev]);
+    apiPost<Assignment>('/api/assignments', newAsg).catch(console.error);
   };
 
   const submitAssignment = (asgId: string, studentName: string, link: string) => {
@@ -259,6 +324,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAssignments(prev => prev.map(asg => 
       asg.id === asgId ? { ...asg, totalSubmissions: asg.totalSubmissions + 1 } : asg
     ));
+    apiPost<Submission>(`/api/assignments/${asgId}/submissions`, { ...newSubmission, link }).catch(console.error);
   };
 
   const saveAttendanceReport = (reportData: Omit<DailyAttendanceReport, 'id'>) => {
@@ -277,6 +343,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return [newReport, ...prev];
     });
+    apiPost<DailyAttendanceReport>('/api/attendance/reports', newReport).catch(console.error);
 
     // Also update student attendance percentage logically 
     // (mock implementation: just add to their percentage visually in a real app)
@@ -289,6 +356,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       status: 'Upcoming'
     };
     setLiveClasses(prev => [newClass, ...prev]);
+    apiPost<LiveClass>('/api/live-classes', newClass).catch(console.error);
   };
 
   const addRecordedLecture = (lectureData: Omit<RecordedLecture, 'id' | 'viewsCount'>) => {
@@ -298,6 +366,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       viewsCount: 0
     };
     setRecordedLectures(prev => [newLecture, ...prev]);
+    apiPost<RecordedLecture>('/api/lectures', newLecture).catch(console.error);
   };
 
   const endLiveClass = (classId: string, videoUrl: string) => {
@@ -325,10 +394,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   useEffect(() => {
+    const loadBackendData = async () => {
+      try {
+        const [remoteMentors, remoteStudents, remoteApplications, remoteAssignments, remoteSubmissions, remoteAttendance, remoteClasses, remoteLectures, remoteQuizzes] = await Promise.all([
+          apiGet<Mentor[]>('/api/mentors'), apiGet<Student[]>('/api/students'), apiGet<StudentApplication[]>('/api/applications'),
+          apiGet<Assignment[]>('/api/assignments'), apiGet<Submission[]>('/api/submissions'), apiGet<DailyAttendanceReport[]>('/api/attendance/reports'),
+          apiGet<LiveClass[]>('/api/live-classes'), apiGet<RecordedLecture[]>('/api/lectures'), apiGet<Quiz[]>('/api/quizzes')
+        ]);
+        setMentors(remoteMentors); setStudents(remoteStudents); setApplications(remoteApplications); setAssignments(remoteAssignments);
+        setSubmissions(remoteSubmissions); setAttendanceReports(remoteAttendance); setLiveClasses(remoteClasses); setRecordedLectures(remoteLectures); setQuizzes(remoteQuizzes);
+      } catch { /* Keep mock data available until an authenticated API session exists. */ }
+    };
+    if (localStorage.getItem('websums_user')) loadBackendData();
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem('websums_quizzes', JSON.stringify(quizzes));
   }, [quizzes]);
 
   const updateQuizResult = (quizId: string, score: number, questionsAnswered: number) => {
+      apiPost(`/api/quizzes/${quizId}/results`, { score, questionsAnswered }).catch(console.error);
     setQuizzes((prev) =>
       prev.map((q) => {
         if (q.id === quizId) {
@@ -344,6 +429,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return q;
       })
     );
+    apiPost(`/api/quizzes/${quizId}/results`, { score, questionsAnswered }).catch(console.error);
+  };
+
+  const resetData = () => {
+    localStorage.removeItem('websums_students');
+    localStorage.removeItem('websums_mentors');
+    localStorage.removeItem('websums_applications');
+    setStudents(INITIAL_STUDENTS);
+    setMentors(INITIAL_MENTORS);
+    setApplications(INITIAL_APPLICATIONS);
   };
 
   return (
@@ -369,7 +464,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         endLiveClass,
         addRecordedLecture,
         quizzes,
-        updateQuizResult
+        updateQuizResult,
+        resetData
       }}
     >
       {children}

@@ -24,6 +24,7 @@ interface NavbarProps {
   setActiveView: (view: string) => void;
   searchTerm: string;
   setSearchTerm: (term: string) => void;
+  onSearch: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -33,7 +34,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeView,
   setActiveView,
   searchTerm,
-  setSearchTerm
+  setSearchTerm,
+  onSearch
 }) => {
   const { user, role, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -77,16 +79,19 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Search Bar */}
-          <div className="hidden md:flex items-center relative max-w-[16rem] lg:max-w-xs xl:max-w-sm w-full md:mx-4 lg:mx-8">
+          <form onSubmit={(event) => { event.preventDefault(); onSearch(); }} className="hidden md:flex items-center relative max-w-[16rem] lg:max-w-xs xl:max-w-sm w-full md:mx-4 lg:mx-8">
             <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 transform -translate-y-1/2 group-focus-within:text-orange-500 transition-colors" />
             <input
               type="text"
-              placeholder="Search students, domains..."
+              placeholder="Search domains..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 text-sm rounded-full border border-slate-200/70 bg-slate-50/50 text-slate-800 placeholder-slate-400 focus:bg-white focus:border-orange-400 focus:ring-4 focus:ring-orange-500/15 transition-all shadow-sm hover:shadow-md hover:border-slate-300 outline-none"
+              className="w-full pl-10 pr-16 py-2.5 text-sm rounded-full border border-slate-200/70 bg-slate-50/50 text-slate-800 placeholder-slate-400 focus:bg-white focus:border-orange-400 focus:ring-4 focus:ring-orange-500/15 transition-all shadow-sm hover:shadow-md hover:border-slate-300 outline-none"
             />
-          </div>
+            <button type="submit" className="absolute right-1.5 rounded-full bg-orange-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-orange-600 transition-colors">
+              Search
+            </button>
+          </form>
 
           {/* Quick Role Navigation & Active Panel Indicator */}
           <div className="hidden lg:flex items-center space-x-3 bg-slate-50/80 p-1.5 rounded-full border border-slate-200/60 text-xs font-semibold shadow-sm whitespace-nowrap">

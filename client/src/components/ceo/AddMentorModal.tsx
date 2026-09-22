@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, UserPlus, Shield, Check } from 'lucide-react';
+import { X, UserPlus, Shield, Check, CheckCircle2, AlertCircle } from 'lucide-react';
 import { INITIAL_DOMAINS } from '../../data/mockData';
 import { useData } from '../../context/DataContext';
 
@@ -17,6 +17,8 @@ export const AddMentorModal: React.FC<Props> = ({ isOpen, onClose }) => {
     assignedDomains: [INITIAL_DOMAINS[0].name],
     batch: 'Batch W-2026-A'
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   if (!isOpen) return null;
 
@@ -32,28 +34,44 @@ export const AddMentorModal: React.FC<Props> = ({ isOpen, onClose }) => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    addMentor({
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      assignedDomains: formData.assignedDomains,
-      activeBatches: [formData.batch],
-      status: 'Active'
-    });
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      assignedDomains: [INITIAL_DOMAINS[0].name],
-      batch: 'Batch W-2026-A'
-    });
-    onClose();
+    setIsSubmitting(true);
+    try {
+      await addMentor({
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        assignedDomains: formData.assignedDomains,
+        activeBatches: [formData.batch],
+        status: 'Active'
+      });
+      setToast({ type: 'success', message: 'Mentor registered successfully. Email is the login ID and phone is the temporary password.' });
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        assignedDomains: [INITIAL_DOMAINS[0].name],
+        batch: 'Batch W-2026-A'
+      });
+      window.setTimeout(onClose, 2500);
+    } catch (error) {
+      setToast({ type: 'error', message: error instanceof Error ? error.message : 'Mentor registration failed.' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 z-60 flex -translate-x-1/2 items-center gap-2 rounded-2xl border px-5 py-3 text-sm font-bold shadow-2xl animate-in slide-in-from-bottom-3 fade-in ${
+          toast.type === 'success' ? 'border-emerald-200 bg-white text-emerald-700' : 'border-rose-200 bg-white text-rose-700'
+        }`}>
+          {toast.type === 'success' ? <CheckCircle2 className="h-5 w-5 text-emerald-500" /> : <AlertCircle className="h-5 w-5 text-rose-500" />}
+          <span>{toast.message}</span>
+        </div>
+      )}
       <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 relative max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}
@@ -109,6 +127,7 @@ export const AddMentorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 className="w-full p-3 rounded-2xl border border-slate-200 bg-slate-50 text-slate-900 focus:bg-white focus:border-orange-500 focus:outline-none"
               />
+              <p className="mt-1 text-[10px] font-medium text-slate-500">This number will be the mentor's temporary login password.</p>
             </div>
             <div>
               <label className="block font-semibold text-slate-700 mb-1">Primary Batch Allocation *</label>
@@ -117,6 +136,7 @@ export const AddMentorModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 onChange={(e) => setFormData({ ...formData, batch: e.target.value })}
                 className="w-full p-3 rounded-2xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:border-orange-500 focus:outline-none"
               >
+                <option value="Batch RK-Gurukul-DS">Batch RK-Gurukul-DS (Data Science)</option>
                 <option value="Batch W-2026-A">Batch W-2026-A (Current Active)</option>
                 <option value="Batch W-2026-B">Batch W-2026-B</option>
                 <option value="Batch W-2026-C">Batch W-2026-C</option>
@@ -153,10 +173,11 @@ export const AddMentorModal: React.FC<Props> = ({ isOpen, onClose }) => {
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full py-3 text-xs font-bold text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 rounded-2xl shadow-lg shadow-orange-500/25 transition-all flex items-center justify-center space-x-2"
+              disabled={isSubmitting}
+              className="w-full py-3 text-xs font-bold text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 rounded-2xl shadow-lg shadow-orange-500/25 transition-all flex items-center justify-center space-x-2 disabled:cursor-wait disabled:opacity-60"
             >
               <Shield className="w-4 h-4" />
-              <span>Confirm & Register Mentor</span>
+              <span>{isSubmitting ? 'Registering Mentor...' : 'Confirm & Register Mentor'}</span>
             </button>
           </div>
         </form>
