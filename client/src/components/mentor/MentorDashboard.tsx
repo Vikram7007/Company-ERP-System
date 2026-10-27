@@ -34,7 +34,10 @@ import {
   Play,
   LayoutGrid,
   List,
-  RefreshCw
+  RefreshCw,
+  Database,
+  Circle,
+  BarChart2
 } from 'lucide-react';
 import { INITIAL_LIVE_CLASSES, INITIAL_ASSIGNMENTS, INITIAL_LECTURES } from '../../data/mockData';
 import { Student, Assignment, StudentApplication } from '../../types';
@@ -44,6 +47,7 @@ import { PdfResumeModal } from '../common/PdfResumeModal';
 import { RecordPaymentModal } from '../common/RecordPaymentModal';
 import { AttendanceReportPreviewModal } from '../common/AttendanceReportPreviewModal';
 import { generateAttendancePDF } from '../../utils/pdfGenerator';
+import { StudentAttendanceProofModal } from '../common/StudentAttendanceProofModal';
 
 export const MentorDashboard: React.FC = () => {
   const { students, applications, updateApplicationStatus, assignments, addAssignment, submissions, attendanceReports, saveAttendanceReport, liveClasses, recordedLectures, addLiveClass, addRecordedLecture, endLiveClass, resetData } = useData();
@@ -58,11 +62,13 @@ export const MentorDashboard: React.FC = () => {
   
   // Modals
   const [previewReport, setPreviewReport] = useState<any>(null);
+  const [proofStudent, setProofStudent] = useState<Student | null>(null);
   
   // Search & Filters for Students Directory
   const [studentSearch, setStudentSearch] = useState('');
   const [selectedBatch, setSelectedBatch] = useState<string>('All');
   const [feeStatusFilter, setFeeStatusFilter] = useState<string>('All');
+  const [timeFilter, setTimeFilter] = useState<'Today' | 'Week' | 'Month' | 'Year'>('Week');
   const [studentPage, setStudentPage] = useState(1);
   const studentsPerPage = 8;
 
@@ -106,13 +112,20 @@ export const MentorDashboard: React.FC = () => {
 
   const attendanceFilteredStudents = students.filter(std => {
     const matchesBatch = selectedAttendanceBatch === 'All' || std.batch === selectedAttendanceBatch;
-    const matchesSearch = attendanceSearch === '' || 
-      std.domain.toLowerCase().includes(attendanceSearch.toLowerCase());
+    const q = (attendanceSearch || '').trim().toLowerCase();
+    const matchesSearch = !q || 
+      (std.name || '').toLowerCase().includes(q) ||
+      (std.email || '').toLowerCase().includes(q) ||
+      (std.domain || '').toLowerCase().includes(q);
     return matchesBatch && matchesSearch;
   });
 
   const filteredFeeStudents = students.filter(std => {
-    const matchesSearch = std.domain.toLowerCase().includes(studentSearch.toLowerCase());
+    const q = (studentSearch || '').trim().toLowerCase();
+    const matchesSearch = !q ||
+      (std.name || '').toLowerCase().includes(q) ||
+      (std.email || '').toLowerCase().includes(q) ||
+      (std.domain || '').toLowerCase().includes(q);
     const matchesBatch = selectedBatch === 'All' || std.batch === selectedBatch;
     const feeStatus = std.feeDetails?.status || 'Unpaid';
     const matchesFee = feeStatusFilter === 'All' || feeStatus === feeStatusFilter;
@@ -317,14 +330,22 @@ export const MentorDashboard: React.FC = () => {
     setShowScheduleModal(false);
   };
 
-  const filteredApps = applications.filter(a => 
-    a.applicantName.toLowerCase().includes(appSearch.toLowerCase()) || 
-    a.domain.toLowerCase().includes(appSearch.toLowerCase()) ||
-    a.college.toLowerCase().includes(appSearch.toLowerCase())
-  );
+  const filteredApps = applications.filter(a => {
+    const q = (appSearch || '').trim().toLowerCase();
+    return !q ||
+      (a.applicantName || '').toLowerCase().includes(q) || 
+      (a.email || '').toLowerCase().includes(q) ||
+      (a.domain || '').toLowerCase().includes(q) ||
+      (a.college || '').toLowerCase().includes(q);
+  });
 
   const filteredStudents = students.filter(s => {
-    const matchesSearch = s.name.toLowerCase().includes(studentSearch.toLowerCase()) || s.email.toLowerCase().includes(studentSearch.toLowerCase());
+    const q = (studentSearch || '').trim().toLowerCase();
+    const matchesSearch = !q ||
+      (s.name || '').toLowerCase().includes(q) ||
+      (s.email || '').toLowerCase().includes(q) ||
+      (s.domain || '').toLowerCase().includes(q) ||
+      (s.phone || '').toLowerCase().includes(q);
     const matchesBatch = selectedBatch === 'All' || s.batch === selectedBatch;
     const feeStatus = s.feeDetails?.status || 'Unpaid';
     const matchesFee = feeStatusFilter === 'All' || feeStatus === feeStatusFilter;
@@ -410,30 +431,42 @@ export const MentorDashboard: React.FC = () => {
           {/* Header & Subtabs */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
             <div>
-              <div className="flex items-center space-x-2">
-                <h3 className="text-lg font-black text-slate-900">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-1.5 h-6 bg-blue-600 rounded-full"></div>
+                <h3 className="text-xl font-bold text-slate-800 tracking-tight">
                   {selectedAttendanceBatch === 'All' ? 'All Batches Combined' : selectedAttendanceBatch} Live Attendance
                 </h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-orange-100 text-orange-700 border border-orange-200">
-                  {attendanceFilteredStudents.length} Students
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-orange-50 text-orange-600 border border-orange-200/60">
+                  <Users className="w-3.5 h-3.5 text-orange-500" />
+                  <span>{attendanceFilteredStudents.length} Students</span>
                 </span>
               </div>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
+              <p className="text-xs text-slate-400 font-medium mt-1">
                 Select a specific batch below to mark attendance, apply bulk status, or review archived reports.
               </p>
 
-              <div className="flex items-center space-x-2 mt-3">
+              <div className="flex items-center space-x-2 mt-4">
                 <button
                   onClick={() => setAttendanceTab('take')}
-                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${attendanceTab === 'take' ? 'bg-orange-500 text-white shadow-sm shadow-orange-500/30' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  className={`px-4 py-2 text-xs font-semibold rounded-xl flex items-center gap-2 transition-all cursor-pointer ${
+                    attendanceTab === 'take'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60'
+                  }`}
                 >
-                  Take Attendance
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Take Attendance</span>
                 </button>
                 <button
                   onClick={() => setAttendanceTab('view')}
-                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${attendanceTab === 'view' ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  className={`px-4 py-2 text-xs font-semibold rounded-xl flex items-center gap-2 transition-all cursor-pointer ${
+                    attendanceTab === 'view'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60'
+                  }`}
                 >
-                  View Reports ({attendanceReports.length})
+                  <BarChart2 className="w-3.5 h-3.5" />
+                  <span>View Reports ({attendanceReports.length})</span>
                 </button>
               </div>
             </div>
@@ -442,9 +475,9 @@ export const MentorDashboard: React.FC = () => {
             {attendanceTab === 'take' && (
               <button
                 onClick={handleSaveAttendance}
-                className="px-6 py-2.5 text-xs font-extrabold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-2xl shadow-md shadow-emerald-600/20 transition-all flex items-center space-x-2 shrink-0 cursor-pointer active:scale-95"
+                className="px-5 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition-all flex items-center space-x-2 shrink-0 cursor-pointer active:scale-95 self-start lg:self-center"
               >
-                <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+                <FileText className="w-4 h-4 stroke-[2]" />
                 <span>Save Attendance Report</span>
               </button>
             )}
@@ -453,7 +486,7 @@ export const MentorDashboard: React.FC = () => {
           {attendanceSaved && (
             <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs font-bold flex items-center space-x-2 shadow-xs animate-in fade-in">
               <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Attendance report for <strong>{selectedAttendanceBatch}</strong> saved successfully! Updated reports and student logs.</span>
+              <span>Attendance report for <strong>{selectedAttendanceBatch}</strong> saved successfully! Updated reports and real-time student logs.</span>
             </div>
           )}
 
@@ -470,28 +503,32 @@ export const MentorDashboard: React.FC = () => {
               <div className="space-y-4">
                 
                 {/* Batch Selector & Quick Actions Control Toolbar */}
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shadow-2xs">
                   
                   {/* Batch Dropdown */}
                   <div className="flex items-center space-x-2">
+                    <Database className="w-4 h-4 text-blue-600 shrink-0" />
                     <span className="text-xs font-bold text-slate-700 shrink-0">Select Batch:</span>
-                    <select
-                      value={selectedAttendanceBatch}
-                      onChange={(e) => {
-                        setSelectedAttendanceBatch(e.target.value);
-                        setAttendancePage(1);
-                      }}
-                      className="py-2 px-3 text-xs font-extrabold rounded-xl border border-slate-300 bg-white text-slate-800 focus:outline-none focus:border-orange-500 cursor-pointer shadow-xs"
-                    >
-                      <option value="All">All Batches</option>
-                      {availableAttendanceBatches.map(b => (
-                        <option key={b} value={b}>{b}</option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <select
+                        value={selectedAttendanceBatch}
+                        onChange={(e) => {
+                          setSelectedAttendanceBatch(e.target.value);
+                          setAttendancePage(1);
+                        }}
+                        className="py-1.5 pl-3 pr-8 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs appearance-none"
+                      >
+                        <option value="All">All Batches</option>
+                        {availableAttendanceBatches.map(b => (
+                          <option key={b} value={b}>{b}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
                   </div>
 
                   {/* Search Bar within Batch */}
-                  <div className="relative flex-1 max-w-xs">
+                  <div className="relative flex-1 max-w-sm">
                     <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
@@ -501,87 +538,179 @@ export const MentorDashboard: React.FC = () => {
                         setAttendanceSearch(e.target.value);
                         setAttendancePage(1);
                       }}
-                      className="w-full pl-8 pr-3 py-1.5 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500"
+                      className="w-full pl-8 pr-3 py-1.5 text-xs font-medium bg-white rounded-xl border border-slate-200 text-slate-700 placeholder-slate-400 focus:outline-none focus:border-blue-500"
                     />
                   </div>
 
                   {/* Quick Bulk Actions */}
                   <div className="flex items-center space-x-2 shrink-0">
-                    <span className="text-[11px] font-bold text-slate-500 hidden sm:inline">Batch Actions:</span>
                     <button
                       onClick={() => handleMarkAllInBatch('Present')}
-                      className="px-3 py-1.5 text-[11px] font-extrabold bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-xl transition-all border border-emerald-200 cursor-pointer"
+                      className="px-3.5 py-1.5 text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl transition-all border border-emerald-200/80 cursor-pointer flex items-center gap-1.5 shadow-2xs active:scale-95"
                     >
-                      Mark All Present
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Mark All Present</span>
                     </button>
                     <button
                       onClick={() => handleMarkAllInBatch('Absent')}
-                      className="px-3 py-1.5 text-[11px] font-extrabold bg-rose-100 hover:bg-rose-200 text-rose-800 rounded-xl transition-all border border-rose-200 cursor-pointer"
+                      className="px-3.5 py-1.5 text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl transition-all border border-rose-200/80 cursor-pointer flex items-center gap-1.5 shadow-2xs active:scale-95"
                     >
-                      Mark All Absent
+                      <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                      <span>Mark All Absent</span>
                     </button>
                   </div>
                 </div>
 
                 {/* Batch Attendance Summary Bar */}
-                <div className="flex items-center justify-between text-xs font-bold px-1 text-slate-600">
-                  <p>Date: {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                  <div className="flex items-center space-x-3 text-[11px]">
-                    <span className="text-emerald-700">
-                      Present: {attendanceFilteredStudents.filter(s => (attendanceMap[s.id] || 'Present') === 'Present').length}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-medium px-1 text-slate-600">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+                      <Calendar className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="font-semibold text-slate-700 text-xs">
+                      Date: {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
                     </span>
-                    <span className="text-rose-700">
-                      Absent: {attendanceFilteredStudents.filter(s => attendanceMap[s.id] === 'Absent').length}
+                  </div>
+                  <div className="flex items-center space-x-2.5">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl font-bold text-xs bg-emerald-50 text-emerald-700 border border-emerald-100">
+                      <Users className="w-3 h-3 text-emerald-600" />
+                      <span>Present: {attendanceFilteredStudents.filter(s => (attendanceMap[s.id] || 'Present') === 'Present').length}</span>
                     </span>
-                    <span className="text-amber-700">
-                      Late: {attendanceFilteredStudents.filter(s => attendanceMap[s.id] === 'Late').length}
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl font-bold text-xs bg-rose-50 text-rose-700 border border-rose-100">
+                      <Users className="w-3 h-3 text-rose-600" />
+                      <span>Absent: {attendanceFilteredStudents.filter(s => attendanceMap[s.id] === 'Absent').length}</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl font-bold text-xs bg-amber-50 text-amber-700 border border-amber-100">
+                      <Clock className="w-3 h-3 text-amber-600" />
+                      <span>Late: {attendanceFilteredStudents.filter(s => attendanceMap[s.id] === 'Late').length}</span>
                     </span>
                   </div>
                 </div>
 
-                {/* Students Attendance List (Bounded Max Height Container) */}
+                {/* Students Attendance List */}
                 {attendanceFilteredStudents.length === 0 ? (
-                  <div className="text-center py-12 bg-slate-50 rounded-2xl border border-slate-200/80">
+                  <div className="text-center py-12 bg-slate-50/50 rounded-2xl border border-slate-200/80">
                     <Users className="w-9 h-9 text-slate-300 mx-auto mb-2" />
                     <p className="text-xs font-bold text-slate-600">No students found for {selectedAttendanceBatch}.</p>
                     <p className="text-[11px] text-slate-400 mt-0.5">Try selecting another batch from the dropdown above.</p>
                   </div>
                 ) : (
-                  <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1 scrollbar-thin">
-                    {paginatedAttendanceStudents.map((std) => {
+                  <div className="space-y-2.5">
+                    {paginatedAttendanceStudents.map((std, idx) => {
                       const currentStatus = attendanceMap[std.id] || 'Present';
                       const fee = std.feeDetails || { totalFee: 15000, paidAmount: 0, pendingAmount: 15000, status: 'Unpaid' };
+                      
+                      // Pastel avatar backgrounds matching screenshot
+                      const avatarThemes = [
+                        'bg-blue-100 text-blue-700 border-blue-200',
+                        'bg-purple-100 text-purple-700 border-purple-200',
+                        'bg-rose-100 text-rose-700 border-rose-200',
+                        'bg-teal-100 text-teal-700 border-teal-200',
+                        'bg-amber-100 text-amber-700 border-amber-200'
+                      ];
+                      const avatarTheme = avatarThemes[idx % avatarThemes.length];
+                      const initials = (std.name || '')
+                        .trim()
+                        .split(/\s+/)
+                        .filter(Boolean)
+                        .map(n => n[0])
+                        .slice(0, 2)
+                        .join('')
+                        .toUpperCase() || 'ST';
+
                       return (
-                        <div key={std.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-orange-200 transition-colors">
-                          <div>
-                            <div className="flex items-center space-x-2">
-                              <h4 className="font-bold text-slate-900 text-xs">{std.name}</h4>
-                              <span className="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[9px] font-extrabold">
-                                {std.batch}
-                              </span>
-                              <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                                fee.status === 'Paid' ? 'bg-emerald-100 text-emerald-800' : fee.status === 'Partial' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
-                              }`}>
-                                Fee: {fee.status}
-                              </span>
+                        <div
+                          key={std.id}
+                          className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-slate-300 transition-all"
+                        >
+                          <div className="flex items-center space-x-3.5 min-w-0">
+                            {/* Avatar Initials Circle */}
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs shrink-0 border ${avatarTheme}`}>
+                              {initials}
                             </div>
-                            <p className="text-[10px] text-slate-500 mt-0.5">{std.email} • {std.college} • {std.domain}</p>
+                            
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <h4 className="font-bold text-slate-900 text-xs truncate">{std.name}</h4>
+                                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200/60 rounded-md text-[10px] font-semibold">
+                                  {std.batch}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
+                                  fee.status === 'Paid'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
+                                    : fee.status === 'Partial'
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200/60'
+                                    : 'bg-rose-50 text-rose-700 border-rose-200/60'
+                                }`}>
+                                  Fee: {fee.status}
+                                </span>
+                                {/* Proof button */}
+                                <button
+                                  type="button"
+                                  onClick={() => setProofStudent(std)}
+                                  title="View Real-time Attendance Proof"
+                                  className="text-[10px] text-blue-600 hover:text-blue-800 underline font-semibold ml-1 cursor-pointer"
+                                >
+                                  Proof
+                                </button>
+                              </div>
+                              <p className="text-[11px] text-slate-400 font-medium mt-0.5 truncate">
+                                {std.email} • {std.college} • {std.domain}
+                              </p>
+                            </div>
                           </div>
 
-                          <div className="flex items-center space-x-2 w-full sm:w-auto">
-                            {['Present', 'Absent', 'Late'].map((status) => (
-                              <button
-                                key={status}
-                                onClick={() => handleMarkAttendance(std.id, status as any)}
-                                className={`flex-1 sm:flex-none px-4 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-                                  currentStatus === status
-                                    ? status === 'Present' ? 'bg-emerald-600 text-white shadow-md' : status === 'Absent' ? 'bg-rose-500 text-white shadow-md' : 'bg-amber-500 text-white shadow-md'
-                                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
-                                }`}
-                              >
-                                {status}
-                              </button>
-                            ))}
+                          {/* 3 Status Pill Buttons */}
+                          <div className="flex items-center space-x-2 w-full sm:w-auto shrink-0">
+                            {/* Present */}
+                            <button
+                              type="button"
+                              onClick={() => handleMarkAttendance(std.id, 'Present')}
+                              className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                                currentStatus === 'Present'
+                                  ? 'bg-[#059669] text-white shadow-xs'
+                                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                              }`}
+                            >
+                              {currentStatus === 'Present' ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-white stroke-[2.5]" />
+                              ) : (
+                                <Circle className="w-3.5 h-3.5 text-slate-400" />
+                              )}
+                              <span>Present</span>
+                            </button>
+
+                            {/* Absent */}
+                            <button
+                              type="button"
+                              onClick={() => handleMarkAttendance(std.id, 'Absent')}
+                              className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                                currentStatus === 'Absent'
+                                  ? 'bg-[#e11d48] text-white shadow-xs'
+                                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                              }`}
+                            >
+                              {currentStatus === 'Absent' ? (
+                                <XCircle className="w-3.5 h-3.5 text-white stroke-[2.5]" />
+                              ) : (
+                                <Circle className="w-3.5 h-3.5 text-slate-400" />
+                              )}
+                              <span>Absent</span>
+                            </button>
+
+                            {/* Late */}
+                            <button
+                              type="button"
+                              onClick={() => handleMarkAttendance(std.id, 'Late')}
+                              className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                                currentStatus === 'Late'
+                                  ? 'bg-[#ea580c] text-white shadow-xs'
+                                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                              }`}
+                            >
+                              <Clock className="w-3.5 h-3.5 text-current stroke-[2]" />
+                              <span>Late</span>
+                            </button>
                           </div>
                         </div>
                       );
@@ -590,44 +719,42 @@ export const MentorDashboard: React.FC = () => {
                 )}
 
                 {/* Pagination Controls for Take Attendance */}
-                {totalAttendancePages > 1 && (
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200 text-xs font-bold text-slate-600">
-                    <div className="text-slate-500 text-xs">
-                      Showing <span className="font-black text-slate-800">{(currentPage - 1) * attendanceStudentsPerPage + 1}</span> to <span className="font-black text-slate-800">{Math.min(currentPage * attendanceStudentsPerPage, attendanceFilteredStudents.length)}</span> of <span className="font-black text-slate-800">{attendanceFilteredStudents.length}</span> students
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <button
-                        disabled={currentPage === 1}
-                        onClick={() => setAttendancePage(p => Math.max(p - 1, 1))}
-                        className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs font-bold shadow-xs cursor-pointer"
-                      >
-                        Previous
-                      </button>
-                      <div className="flex items-center space-x-1">
-                        {Array.from({ length: totalAttendancePages }, (_, i) => i + 1).map((pg) => (
-                          <button
-                            key={pg}
-                            onClick={() => setAttendancePage(pg)}
-                            className={`w-7 h-7 rounded-lg text-xs font-black transition-all cursor-pointer ${
-                              currentPage === pg
-                                ? 'bg-orange-500 text-white shadow-xs'
-                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                            }`}
-                          >
-                            {pg}
-                          </button>
-                        ))}
-                      </div>
-                      <button
-                        disabled={currentPage === totalAttendancePages}
-                        onClick={() => setAttendancePage(p => Math.min(p + 1, totalAttendancePages))}
-                        className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs font-bold shadow-xs cursor-pointer"
-                      >
-                        Next
-                      </button>
-                    </div>
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs font-medium text-slate-500">
+                  <div className="text-slate-400 text-xs">
+                    Showing <span className="font-semibold text-slate-700">{(currentPage - 1) * attendanceStudentsPerPage + 1}</span> to <span className="font-semibold text-slate-700">{Math.min(currentPage * attendanceStudentsPerPage, attendanceFilteredStudents.length)}</span> of <span className="font-semibold text-slate-700">{attendanceFilteredStudents.length}</span> students
                   </div>
-                )}
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      disabled={currentPage === 1}
+                      onClick={() => setAttendancePage(p => Math.max(p - 1, 1))}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs font-semibold text-slate-600 shadow-2xs cursor-pointer"
+                    >
+                      Previous
+                    </button>
+                    <div className="flex items-center space-x-1">
+                      {Array.from({ length: totalAttendancePages }, (_, i) => i + 1).map((pg) => (
+                        <button
+                          key={pg}
+                          onClick={() => setAttendancePage(pg)}
+                          className={`w-7 h-7 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                            currentPage === pg
+                              ? 'bg-blue-600 text-white shadow-2xs'
+                              : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          {pg}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      disabled={currentPage === totalAttendancePages}
+                      onClick={() => setAttendancePage(p => Math.min(p + 1, totalAttendancePages))}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs font-semibold text-slate-600 shadow-2xs cursor-pointer"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
               </div>
             );
           })()}
@@ -945,95 +1072,142 @@ export const MentorDashboard: React.FC = () => {
 
       {/* TAB 2: STUDENTS DIRECTORY & FINANCIAL FEE RECORDS FOR MENTORS */}
       {activeTab === 'students' && (
-        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xl shadow-slate-200/40 overflow-hidden space-y-0">
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden space-y-0">
           
           {/* Top Decorative Banner Stripe */}
-          <div className="h-1.5 w-full bg-gradient-to-r from-orange-500 via-amber-500 to-emerald-500"></div>
+          <div className="h-1.5 w-full bg-gradient-to-r from-[#ff5a00] via-[#eab308] via-[#84cc16] to-[#10b981]"></div>
 
           {/* Header & Controls Section */}
-          <div className="p-4 pb-3 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white">
-            <div>
-              <div className="flex items-center flex-wrap gap-2">
-                <h3 className="text-[1.05rem] font-black text-slate-900 tracking-tight leading-tight">Registered Students Directory & Company Fee Records</h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-orange-100 text-orange-700 border border-orange-200">
-                  {filteredStudents.length} Active Records
-                </span>
+          <div className="overflow-x-auto">
+            <div className="p-4 sm:p-5 flex items-center justify-between gap-5 min-w-max bg-white">
+              
+              {/* Left: Icon + Title & Description */}
+              <div className="flex items-center gap-3.5 shrink-0">
+                <div className="w-11 h-11 rounded-2xl bg-[#fff4ed] flex items-center justify-center shrink-0 border border-orange-100/60">
+                  <Users className="w-5 h-5 text-orange-500 stroke-[2.2]" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <h3 className="text-[15px] font-extrabold text-slate-900 tracking-tight whitespace-nowrap">
+                      Registered Students Directory & Company Fee Records
+                    </h3>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#e8f8ee] text-[#15803d] shrink-0">
+                      <span className="w-2 h-2 rounded-full bg-[#22c55e]"></span>
+                      {filteredStudents.length} Active Records
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1 font-normal whitespace-nowrap">
+                    Track total course fees, payments made, pending balances and manage records in real time.
+                  </p>
+                </div>
               </div>
-              <p className="text-[11px] text-slate-500 mt-1 font-medium">Track total course fees, payments made, pending balances and manage records in real time</p>
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-              {/* Search Bar */}
-              <div className="relative flex-1 sm:w-64">
-                <Search className="w-4 h-4 text-orange-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search by student name or email..."
-                  value={studentSearch}
-                  onChange={(e) => {
-                    setStudentSearch(e.target.value);
-                    setStudentPage(1);
-                  }}
-                  className="w-full pl-9 pr-8 py-2 text-[11px] rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white focus:outline-none focus:border-orange-500 transition-all font-medium text-slate-800 placeholder:text-slate-400"
-                />
-                {studentSearch && (
-                  <button 
-                    onClick={() => setStudentSearch('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+
+              {/* Vertical Divider */}
+              <div className="h-11 w-px bg-slate-200 mx-2 shrink-0"></div>
+
+              {/* Right: Controls in 2 exact rows */}
+              <div className="flex flex-col gap-2 shrink-0">
+                
+                {/* Row 1: Time Pills + Search + Filters (NEVER WRAPS) */}
+                <div className="flex items-center gap-2.5 flex-nowrap">
+                  
+                  {/* Time Range Dropdown */}
+                  <div className="relative flex items-center shrink-0">
+                    <Calendar className="w-3.5 h-3.5 text-slate-700 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select
+                      value={timeFilter}
+                      onChange={(e) => setTimeFilter(e.target.value as any)}
+                      className="pl-8 pr-7 py-1.5 text-[11px] font-medium text-slate-800 bg-white rounded-xl border border-slate-200 hover:border-slate-300 focus:outline-none focus:border-slate-300 cursor-pointer appearance-none transition-all"
+                    >
+                      <option value="Today">Today</option>
+                      <option value="Week">This Week</option>
+                      <option value="Month">This Month</option>
+                      <option value="Year">This Year</option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+
+                  {/* Search Bar */}
+                  <div className="relative shrink-0">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Search by student"
+                      value={studentSearch}
+                      onChange={(e) => {
+                        setStudentSearch(e.target.value);
+                        setStudentPage(1);
+                      }}
+                      className="pl-8.5 pr-7 py-1.5 text-[11px] rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-slate-300 text-slate-800 placeholder:text-slate-400 w-36 transition-all"
+                    />
+                    {studentSearch && (
+                      <button 
+                        onClick={() => setStudentSearch('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Fee Status Filter Dropdown */}
+                  <div className="relative flex items-center shrink-0">
+                    <Filter className="w-3.5 h-3.5 text-slate-700 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select
+                      value={feeStatusFilter}
+                      onChange={(e) => {
+                        setFeeStatusFilter(e.target.value);
+                        setStudentPage(1);
+                      }}
+                      className="pl-8 pr-7 py-1.5 text-[11px] font-medium text-slate-800 bg-white rounded-xl border border-slate-200 hover:border-slate-300 focus:outline-none focus:border-slate-300 cursor-pointer appearance-none transition-all"
+                    >
+                      <option value="All">All Fee Status</option>
+                      <option value="Paid">Fully Paid</option>
+                      <option value="Partial">Partial Dues</option>
+                      <option value="Unpaid">Unpaid</option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+
+                  {/* Batch Filter Dropdown */}
+                  <div className="relative flex items-center shrink-0">
+                    <GraduationCap className="w-3.5 h-3.5 text-slate-700 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select
+                      value={selectedBatch}
+                      onChange={(e) => {
+                        setSelectedBatch(e.target.value);
+                        setStudentPage(1);
+                      }}
+                      className="pl-8 pr-7 py-1.5 text-[11px] font-medium text-slate-800 bg-white rounded-xl border border-slate-200 hover:border-slate-300 focus:outline-none focus:border-slate-300 cursor-pointer appearance-none transition-all"
+                    >
+                      <option value="All">All Batches</option>
+                      {availableAttendanceBatches.map(b => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+
+                </div>
+
+                {/* Row 2: Sync Data Button (Aligned directly under Time Pills) */}
+                <div className="flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetData();
+                      alert('Data synced! Batch RK-Gurukul-DS and student records updated.');
+                    }}
+                    title="Click to sync new batches and refresh student records"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-orange-500 bg-white hover:bg-orange-50 text-orange-600 font-bold text-[11px] transition-all shadow-xs active:scale-95 cursor-pointer"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <RefreshCw className="w-3.5 h-3.5 text-orange-500" />
+                    <span>Sync Data</span>
                   </button>
-                )}
+                </div>
+
               </div>
 
-              {/* Fee Status Filter Dropdown */}
-              <div className="relative">
-                <select
-                  value={feeStatusFilter}
-                  onChange={(e) => {
-                    setFeeStatusFilter(e.target.value);
-                    setStudentPage(1);
-                  }}
-                  className="py-2 pl-3 pr-8 text-[11px] rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-white font-extrabold text-slate-700 cursor-pointer focus:outline-none focus:border-orange-500 transition-all appearance-none"
-                >
-                  <option value="All">All Fee Status</option>
-                  <option value="Paid">✅ Fully Paid</option>
-                  <option value="Partial">⚠️ Partial Dues</option>
-                  <option value="Unpaid">🔴 Unpaid</option>
-                </select>
-                <Filter className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-
-              {/* Batch Filter Dropdown */}
-              <div className="relative">
-                <select
-                  value={selectedBatch}
-                  onChange={(e) => {
-                    setSelectedBatch(e.target.value);
-                    setStudentPage(1);
-                  }}
-                  className="py-2 pl-3 pr-8 text-[11px] rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-white font-extrabold text-slate-700 cursor-pointer focus:outline-none focus:border-orange-500 transition-all appearance-none"
-                >
-                  <option value="All">All Batches</option>
-                  {availableAttendanceBatches.map(b => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
-                </select>
-                <ChevronRight className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none rotate-90" />
-              </div>
-
-              {/* Sync Data Button for Mentors */}
-              <button
-                onClick={() => {
-                  resetData();
-                  alert('Data synced! Batch RK-Gurukul-DS and student records updated.');
-                }}
-                title="Click to sync new batches and refresh student records"
-                className="py-2 px-3 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-600 font-extrabold text-[11px] flex items-center space-x-1.5 transition-all shadow-sm active:scale-95"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Sync Data</span>
-              </button>
             </div>
           </div>
 
@@ -1049,7 +1223,7 @@ export const MentorDashboard: React.FC = () => {
                   <th className="py-2.5 px-3">Paid Amount</th>
                   <th className="py-2.5 px-3">Pending Due</th>
                   <th className="py-2.5 px-3">Fee Status</th>
-                  <th className="py-2.5 px-3 text-right">Fee Action</th>
+                  <th className="py-3 px-4 text-center font-bold text-xs uppercase text-[#0a2540] tracking-wider">Fee Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
@@ -1066,22 +1240,23 @@ export const MentorDashboard: React.FC = () => {
                   paginatedStudents.map((std) => {
                     const fee = std.feeDetails || { totalFee: 15000, paidAmount: 0, pendingAmount: 15000, status: 'Unpaid' };
                     
-                    const getDomainBadgeStyle = (domainName: string) => {
-                      if (domainName.includes('MERN') || domainName.includes('Full Stack')) {
+                    const getDomainBadgeStyle = (domainName?: string | null) => {
+                      const d = String(domainName || '');
+                      if (d.includes('MERN') || d.includes('Full Stack')) {
                         return 'bg-indigo-50 text-indigo-700 border-indigo-200/80 hover:bg-indigo-100';
-                      } else if (domainName.includes('AI') || domainName.includes('Artificial Intelligence') || domainName.includes('Deep Learning')) {
+                      } else if (d.includes('AI') || d.includes('Artificial Intelligence') || d.includes('Deep Learning')) {
                         return 'bg-purple-50 text-purple-700 border-purple-200/80 hover:bg-purple-100';
-                      } else if (domainName.includes('DevOps') || domainName.includes('Cloud')) {
+                      } else if (d.includes('DevOps') || d.includes('Cloud')) {
                         return 'bg-sky-50 text-sky-700 border-sky-200/80 hover:bg-sky-100';
-                      } else if (domainName.includes('UI/UX') || domainName.includes('Design')) {
+                      } else if (d.includes('UI/UX') || d.includes('Design')) {
                         return 'bg-pink-50 text-pink-700 border-pink-200/80 hover:bg-pink-100';
-                      } else if (domainName.includes('Data Science')) {
+                      } else if (d.includes('Data Science')) {
                         return 'bg-emerald-50 text-emerald-700 border-emerald-200/80 hover:bg-emerald-100';
                       }
                       return 'bg-orange-50 text-orange-700 border-orange-200/80 hover:bg-orange-100';
                     };
 
-                    const getAvatarGradient = (name: string) => {
+                    const getAvatarGradient = (name?: string | null) => {
                       const colors = [
                         'from-orange-500 to-amber-500 text-white',
                         'from-indigo-500 to-purple-500 text-white',
@@ -1090,7 +1265,8 @@ export const MentorDashboard: React.FC = () => {
                         'from-sky-500 to-blue-500 text-white'
                       ];
                       let sum = 0;
-                      for (let i = 0; i < name.length; i++) sum += name.charCodeAt(i);
+                      const safeName = String(name || 'Student');
+                      for (let i = 0; i < safeName.length; i++) sum += safeName.charCodeAt(i);
                       return colors[sum % colors.length];
                     };
 
@@ -1189,18 +1365,20 @@ export const MentorDashboard: React.FC = () => {
                           )}
                         </td>
 
-                        {/* Record Payment Button */}
-                        <td className="py-2.5 px-3 text-right">
-                          <button
-                            onClick={() => {
-                              setSelectedStudentForFee(std);
-                              setShowFeeModal(true);
-                            }}
-                            className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-[10px] font-extrabold transition-all shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 flex items-center space-x-1.5 ml-auto whitespace-nowrap cursor-pointer active:scale-95 border border-emerald-500/20"
-                          >
-                            <DollarSign className="w-3.5 h-3.5 stroke-[2.5]" />
-                            <span>Record Payment</span>
-                          </button>
+                        {/* Actions: Payment */}
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center justify-center">
+                            <button
+                              onClick={() => {
+                                setSelectedStudentForFee(std);
+                                setShowFeeModal(true);
+                              }}
+                              title="Record Payment"
+                              className="w-8 h-8 rounded-lg bg-[#eff6ff] border border-[#dbeafe] text-[#0066cc] hover:bg-[#dbeafe] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                            >
+                              <DollarSign className="w-4 h-4 stroke-[2.2]" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1568,10 +1746,11 @@ export const MentorDashboard: React.FC = () => {
                 </div>
               ) : (() => {
                 const filtered = recordedLectures.filter((lec) => {
-                  const matchesSearch = 
-                    lec.title.toLowerCase().includes(mentorVideoSearch.toLowerCase()) || 
-                    lec.domain.toLowerCase().includes(mentorVideoSearch.toLowerCase()) ||
-                    `week ${lec.week}`.toLowerCase().includes(mentorVideoSearch.toLowerCase());
+                  const q = (mentorVideoSearch || '').trim().toLowerCase();
+                  const matchesSearch = !q ||
+                    (lec.title || '').toLowerCase().includes(q) || 
+                    (lec.domain || '').toLowerCase().includes(q) ||
+                    `week ${lec.week || ''}`.toLowerCase().includes(q);
                   const matchesWeek = mentorVideoWeekFilter === 'All' || lec.week.toString() === mentorVideoWeekFilter;
                   return matchesSearch && matchesWeek;
                 });
@@ -2188,6 +2367,20 @@ export const MentorDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Attendance Report Preview Modal */}
+      <AttendanceReportPreviewModal
+        report={previewReport}
+        onClose={() => setPreviewReport(null)}
+      />
+
+      {/* Real-time Student Attendance Proof Modal */}
+      <StudentAttendanceProofModal
+        isOpen={!!proofStudent}
+        onClose={() => setProofStudent(null)}
+        student={proofStudent}
+        attendanceReports={attendanceReports}
+      />
 
     </div>
   );

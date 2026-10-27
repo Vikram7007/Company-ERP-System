@@ -160,6 +160,7 @@ export interface DailyAttendanceReport {
   presentCount: number;
   absentCount: number;
   lateCount: number;
+  sessionTopic?: string;
   records: AttendanceRecord[];
 }
 

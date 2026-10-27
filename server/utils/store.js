@@ -32,33 +32,6 @@ const publicUser = (user) => {
   return safeUser;
 };
 
-const ensureRequestedCeo = async () => {
-  const email = 'websumssoftware@gmail.com';
-  if (store.users.some((user) => user.email.toLowerCase() === email)) return false;
-
-  store.users.push({
-    id: 'usr-ceo-shriram-thorat',
-    name: 'Shriram Thorat',
-    email,
-    passwordHash: await bcrypt.hash('12345678', 10),
-    role: 'CEO'
-  });
-  return true;
-};
-
-const removeLegacyDemoUsers = () => {
-  const legacyEmails = new Set(['ceo@websums.com', 'vikram.lale@websums.com', 'aarav.sharma@example.com']);
-  const originalCount = store.users.length;
-  store.users = store.users.filter((user) => !legacyEmails.has(user.email.toLowerCase()));
-  return store.users.length !== originalCount;
-};
-
-const removeAllMentorCredentials = () => {
-  const originalCount = store.users.length;
-  store.users = store.users.filter((user) => user.role !== 'Mentor');
-  return store.users.length !== originalCount;
-};
-
 const persistStore = async () => {
   if (mongoose.connection.readyState !== 1) return;
   await StoreSnapshot.findOneAndUpdate(
@@ -68,33 +41,45 @@ const persistStore = async () => {
   );
 };
 
-const initializeStore = async () => {
-  if (store.users.length) return;
+const ensureCeoAccount = async () => {
+  const ceoEmail = 'websumssoftware@gmail.com';
+  let ceo = store.users.find((u) => u.email.toLowerCase() === ceoEmail && u.role === 'CEO');
+  if (!ceo) {
+    store.users.push({
+      id: 'usr-ceo-shriram-thorat',
+      name: 'Shriram Thorat',
+      email: ceoEmail,
+      phone: '9822122101',
+      passwordHash: await bcrypt.hash('12345678', 10),
+      role: 'CEO'
+    });
+    return true;
+  }
+  return false;
+};
 
+const initializeStore = async () => {
   if (mongoose.connection.readyState === 1) {
     const snapshot = await StoreSnapshot.findOne({ key: 'internship-store' }).lean();
-    if (snapshot?.data?.users?.length) {
+    if (snapshot?.data) {
       Object.assign(store, snapshot.data);
-      const removedLegacyUsers = removeLegacyDemoUsers();
-      const removedMentorCredentials = removeAllMentorCredentials();
-      const addedRequestedCeo = await ensureRequestedCeo();
-      if (removedLegacyUsers || removedMentorCredentials || addedRequestedCeo) await persistStore();
-      console.log('MongoDB data loaded');
+      store.users = Array.isArray(snapshot.data.users) ? snapshot.data.users : [];
+      const addedCeo = await ensureCeoAccount();
+      if (addedCeo) await persistStore();
+      console.log('MongoDB data loaded (users count: ' + store.users.length + ')');
       return;
     }
   }
 
-  store.users.push(
-    { id: 'usr-ceo-shriram-thorat', name: 'Shriram Thorat', email: 'websumssoftware@gmail.com', passwordHash: await bcrypt.hash('12345678', 10), role: 'CEO' }
-  );
+  store.users = [];
+  await ensureCeoAccount();
   store.domains.push(
     { id: 'dom-mern', name: 'MERN Stack Development', description: 'Full-stack JavaScript development', duration: '6 months', status: 'Active', syllabus: [] },
     { id: 'dom-java', name: 'Full Stack Java Development', description: 'Enterprise Java and web development', duration: '6 months', status: 'Active', syllabus: [] },
     { id: 'dom-python', name: 'Python Data Science', description: 'Python, analytics and machine learning', duration: '6 months', status: 'Active', syllabus: [] }
   );
-  store.mentors.push({ id: 'mnt-1', userId: 'usr-mentor-1', name: 'Vikram Lale', email: 'vikram.lale@websums.com', phone: '+91 98000 22233', assignedDomains: ['MERN Stack Development'], activeBatches: ['Batch W-2026-A'], status: 'Active', rating: 4.9 });
-  store.students.push({ id: 'std-101', userId: 'usr-student-1', name: 'Aarav Sharma', email: 'aarav.sharma@example.com', phone: '+91 98765 43210', domain: 'MERN Stack Development', batch: 'Batch W-2026-A', mentorName: 'Vikram Lale', college: 'IIT Delhi', status: 'Active', feeDetails: { totalFee: 15000, paidAmount: 15000, pendingAmount: 0, status: 'Paid', transactions: [] } });
-  store.announcements.push({ id: id('ann'), title: 'Welcome to Websums Internship Program', content: 'Your learning journey starts here.', audience: 'All', createdBy: 'usr-ceo-1', createdAt: new Date().toISOString() });
+  store.students.push({ id: 'std-101', userId: '', name: 'Aarav Sharma', email: 'aarav.sharma@example.com', phone: '+91 98765 43210', domain: 'MERN Stack Development', batch: 'Batch W-2026-A', mentorName: '', college: 'IIT Delhi', status: 'Active', feeDetails: { totalFee: 15000, paidAmount: 15000, pendingAmount: 0, status: 'Paid', transactions: [] } });
+  store.announcements.push({ id: id('ann'), title: 'Welcome to Websums Internship Program', content: 'Your learning journey starts here.', audience: 'All', createdBy: 'usr-ceo-shriram-thorat', createdAt: new Date().toISOString() });
   await persistStore();
 };
 

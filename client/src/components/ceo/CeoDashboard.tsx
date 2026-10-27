@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Users, 
   UserCheck, 
@@ -16,6 +16,7 @@ import {
   CheckCircle2, 
   Clock, 
   ChevronRight,
+  ChevronDown,
   ShieldCheck,
   Megaphone,
   Layers,
@@ -32,7 +33,18 @@ import {
   Phone,
   Download,
   CalendarCheck,
-  RefreshCw
+  RefreshCw,
+  Trash2,
+  Copy,
+  Star,
+  KeyRound,
+  MessageSquare,
+  AlertCircle,
+  Check,
+  Pencil,
+  User,
+  Loader2,
+  Sparkles
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell 
@@ -46,16 +58,23 @@ import { PdfResumeModal } from '../common/PdfResumeModal';
 import { RecordPaymentModal } from '../common/RecordPaymentModal';
 import { AttendanceReportPreviewModal } from '../common/AttendanceReportPreviewModal';
 import { generateAttendancePDF } from '../../utils/pdfGenerator';
+import { exportStudentsToExcel } from '../../utils/excelExport';
+import { calculateStudentAttendanceStats, StudentMonthlyAttendanceSummary } from '../../utils/attendanceCalculator';
+import { StudentAttendanceProofModal } from '../common/StudentAttendanceProofModal';
 
 export const CeoDashboard: React.FC = () => {
   const { user } = useAuth();
-  const { mentors, students, applications, addStudent, updateApplicationStatus, attendanceReports, resetData } = useData();
+  const { mentors, students, applications, addStudent, deleteStudent, updateStudent, updateApplicationStatus, attendanceReports, resetData, deleteMentor } = useData();
 
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'students' | 'mentors' | 'applications' | 'attendance' | 'live-classes' | 'certificates'>('overview');
   const [reportDateFilter, setReportDateFilter] = useState('');
   
   // Search & Filters
   const [studentSearch, setStudentSearch] = useState('');
+  const [mentorSearch, setMentorSearch] = useState('');
+  const [mentorDomainFilter, setMentorDomainFilter] = useState<string>('All');
+  const [mentorToast, setMentorToast] = useState<string | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [selectedBatch, setSelectedBatch] = useState<string>('All');
   const [feeStatusFilter, setFeeStatusFilter] = useState<string>('All');
   const [studentPage, setStudentPage] = useState(1);
@@ -74,10 +93,33 @@ export const CeoDashboard: React.FC = () => {
   const [selectedStudentForFee, setSelectedStudentForFee] = useState<Student | null>(null);
   const [showFeeModal, setShowFeeModal] = useState(false);
 
+  // Edit Student Modal
+  const [selectedStudentForEdit, setSelectedStudentForEdit] = useState<Student | null>(null);
+  const [showEditStudentModal, setShowEditStudentModal] = useState(false);
+  const [editStudentForm, setEditStudentForm] = useState({ name: '', email: '', phone: '', domain: '', batch: '', college: '' });
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  // View Student Modal
+  const [selectedStudentForView, setSelectedStudentForView] = useState<Student | null>(null);
+  const [showViewStudentModal, setShowViewStudentModal] = useState(false);
+
+  // Delete Confirm
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+
   const [previewReport, setPreviewReport] = useState<any>(null);
+  const [proofStudent, setProofStudent] = useState<Student | null>(null);
 
   // Time Filter for Analytics
   const [timeFilter, setTimeFilter] = useState<'Today' | 'Week' | 'Month' | 'Year'>('Week');
+
+  // Real-time attendance calculation from actual attendance report records
+  const studentAttendanceMap = useMemo(() => {
+    const map: Record<string, StudentMonthlyAttendanceSummary> = {};
+    students.forEach(student => {
+      map[student.id] = calculateStudentAttendanceStats(student.id, attendanceReports);
+    });
+    return map;
+  }, [students, attendanceReports]);
 
   const availableBatches = Array.from(new Set([
     'Batch RK-Gurukul-DS',
@@ -105,39 +147,30 @@ export const CeoDashboard: React.FC = () => {
   const totalOutstandingDues = students.reduce((acc, s) => acc + (s.feeDetails?.pendingAmount || 0), 0);
 
   // Export handlers
-  const handleExportCSV = () => {
-    const exportRows = filteredStudents.length > 0 ? filteredStudents : students;
-    const headers = ['Student Name', 'Email', 'Phone', 'Domain', 'Batch', 'College', 'Total Fee', 'Paid Amount', 'Pending Due', 'Fee Status'];
-    const rows = exportRows.map(s => {
-      const f = s.feeDetails || { totalFee: 15000, paidAmount: 0, pendingAmount: 15000, status: 'Unpaid' };
-      return [
-        s.name,
-        s.email,
-        s.phone,
-        s.domain,
-        s.batch,
-        s.college || '',
-        f.totalFee,
-        f.paidAmount,
-        f.pendingAmount,
-        f.status || 'Unpaid'
-      ];
-    });
-
-    const csvData = [headers, ...rows]
-      .map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-
-    const blob = new Blob(['\uFEFF' + csvData], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'Websums_Student_Fee_Report.csv';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+  const handleExportExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      setMentorToast('Preparing Websums Software official Excel report with company logo...');
+      await exportStudentsToExcel({
+        students,
+        filteredStudents,
+        companyName: 'Websums Software PVT.LTD',
+        ceoName: 'Shriram Thorat (CEO)',
+        reportTitle: 'STUDENT ENROLLMENT & EXECUTIVE FEE REPORT',
+        attendanceReports
+      });
+      setMentorToast('Websums Software PVT.LTD Excel sheet generated successfully! 🎉');
+      window.setTimeout(() => setMentorToast(null), 4000);
+    } catch (error) {
+      console.error('Failed to export Excel report:', error);
+      setMentorToast('Failed to generate Excel report. Please try again.');
+      window.setTimeout(() => setMentorToast(null), 3500);
+    } finally {
+      setIsExportingExcel(false);
+    }
   };
+
+  const handleExportCSV = handleExportExcel;
 
   const handleAddStudentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,10 +195,50 @@ export const CeoDashboard: React.FC = () => {
     });
     setShowAddStudentModal(false);
     setNewStudent({ name: '', email: '', phone: '', domain: INITIAL_DOMAINS[0].name, batch: 'Batch W-2026-A', college: '', totalFee: 15000, paidAmount: 5000 });
+    setMentorToast(`🎓 Student "${newStudent.name}" added successfully!`);
+    window.setTimeout(() => setMentorToast(null), 4000);
+  };
+
+  // Dynamic Domain pill badge styling
+  const getDomainBadgeStyle = (domainName?: string) => {
+    const d = domainName || '';
+    if (d.includes('MERN') || d.includes('Full Stack')) {
+      return 'bg-indigo-50 text-indigo-700 border-indigo-200/80 hover:bg-indigo-100';
+    } else if (d.includes('AI') || d.includes('Artificial Intelligence') || d.includes('Deep Learning')) {
+      return 'bg-purple-50 text-purple-700 border-purple-200/80 hover:bg-purple-100';
+    } else if (d.includes('DevOps') || d.includes('Cloud')) {
+      return 'bg-sky-50 text-sky-700 border-sky-200/80 hover:bg-sky-100';
+    } else if (d.includes('UI/UX') || d.includes('Design')) {
+      return 'bg-pink-50 text-pink-700 border-pink-200/80 hover:bg-pink-100';
+    } else if (d.includes('Data Science')) {
+      return 'bg-emerald-50 text-emerald-700 border-emerald-200/80 hover:bg-emerald-100';
+    }
+    return 'bg-orange-50 text-orange-700 border-orange-200/80 hover:bg-orange-100';
+  };
+
+  // Dynamic Avatar gradient based on name hash
+  const getAvatarGradient = (name?: string) => {
+    const colors = [
+      'from-orange-500 to-amber-500 text-white',
+      'from-indigo-500 to-purple-500 text-white',
+      'from-emerald-500 to-teal-500 text-white',
+      'from-rose-500 to-pink-500 text-white',
+      'from-sky-500 to-blue-500 text-white'
+    ];
+    let sum = 0;
+    const safeName = name || 'Student';
+    for (let i = 0; i < safeName.length; i++) sum += safeName.charCodeAt(i);
+    return colors[sum % colors.length];
   };
 
   const filteredStudents = students.filter(s => {
-    const matchesSearch = s.domain.toLowerCase().includes(studentSearch.toLowerCase());
+    const q = (studentSearch || '').trim().toLowerCase();
+    const nameMatch = (s.name || '').toLowerCase().includes(q);
+    const emailMatch = (s.email || '').toLowerCase().includes(q);
+    const domainMatch = (s.domain || '').toLowerCase().includes(q);
+    const phoneMatch = (s.phone || '').toLowerCase().includes(q);
+    const collegeMatch = (s.college || '').toLowerCase().includes(q);
+    const matchesSearch = !q || nameMatch || emailMatch || domainMatch || phoneMatch || collegeMatch;
     const matchesBatch = selectedBatch === 'All' || s.batch === selectedBatch;
     const feeStatus = s.feeDetails?.status || 'Unpaid';
     const matchesFee = feeStatusFilter === 'All' || feeStatus === feeStatusFilter;
@@ -177,7 +250,11 @@ export const CeoDashboard: React.FC = () => {
   const paginatedStudents = filteredStudents.slice((currentStudentPage - 1) * studentsPerPage, currentStudentPage * studentsPerPage);
 
   const filteredApplications = applications.filter(a => {
-    const matchesSearch = a.applicantName.toLowerCase().includes(appSearch.toLowerCase()) || a.email.toLowerCase().includes(appSearch.toLowerCase()) || a.domain.toLowerCase().includes(appSearch.toLowerCase());
+    const q = (appSearch || '').trim().toLowerCase();
+    const matchesSearch = !q ||
+      (a.applicantName || '').toLowerCase().includes(q) ||
+      (a.email || '').toLowerCase().includes(q) ||
+      (a.domain || '').toLowerCase().includes(q);
     const matchesStatus = appStatusFilter === 'All' || a.status === appStatusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -194,6 +271,18 @@ export const CeoDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Toast Notification */}
+      {mentorToast && (
+        <div className="fixed top-8 left-1/2 z-70 flex -translate-x-1/2 items-center gap-3 rounded-2xl border border-emerald-300 bg-emerald-50 px-6 py-3.5 text-sm font-extrabold text-emerald-950 shadow-2xl animate-in slide-in-from-top-4 fade-in duration-300">
+          <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 shadow-md">
+            <CheckCircle2 className="h-5 w-5 stroke-[2.5]" />
+          </div>
+          <div>
+            <p className="font-black text-sm">{mentorToast}</p>
+            <p className="text-[11px] font-medium text-emerald-700">Login credentials generated: Email as Login ID and Mobile No. as password.</p>
+          </div>
+        </div>
+      )}
       
       {/* Top Header Banner */}
       <div className="relative overflow-hidden rounded-[1.5rem] border border-[#ff8b33] bg-[#FF7600] p-5 text-white shadow-[0_14px_30px_rgba(255,118,0,0.22)] sm:p-6">
@@ -232,11 +321,17 @@ export const CeoDashboard: React.FC = () => {
           </button>
 
           <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-2 rounded-xl border border-white/45 bg-white/15 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-white/25 sm:text-sm"
+            onClick={handleExportExcel}
+            disabled={isExportingExcel}
+            className="flex items-center gap-2 rounded-xl border border-white/45 bg-white/15 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-white/25 sm:text-sm active:scale-95 disabled:opacity-75 cursor-pointer"
+            title="Download official Websums Software Pvt. Ltd. Excel report with company logo"
           >
-            <FileSpreadsheet className="w-4 h-4 text-white" />
-            <span>Export Excel</span>
+            {isExportingExcel ? (
+              <Loader2 className="w-4 h-4 text-white animate-spin" />
+            ) : (
+              <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
+            )}
+            <span>{isExportingExcel ? 'Exporting Excel...' : 'Export Excel'}</span>
           </button>
           
           <button
@@ -452,124 +547,157 @@ export const CeoDashboard: React.FC = () => {
 
       {/* SUB TAB 2: STUDENTS DIRECTORY & FINANCIAL FEE RECORDS */}
       {activeSubTab === 'students' && (
-        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xl shadow-slate-200/40 overflow-hidden space-y-0">
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden space-y-0">
           
           {/* Top Decorative Banner Stripe */}
-          <div className="h-1.5 w-full bg-gradient-to-r from-orange-500 via-amber-500 to-emerald-500"></div>
+          <div className="h-1.5 w-full bg-gradient-to-r from-[#ff5a00] via-[#eab308] via-[#84cc16] to-[#10b981]"></div>
 
           {/* Header & Controls Section */}
-          <div className="p-4 pb-3 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white">
-            <div>
-              <div className="flex items-center flex-wrap gap-2">
-                <h3 className="text-[1.05rem] font-black text-slate-900 tracking-tight leading-tight">Registered Students Directory & Company Fee Records</h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-orange-100 text-orange-700 border border-orange-200">
-                  {filteredStudents.length} Active Records
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 mt-1 font-medium">Track total course fees, payments made, pending balances and manage records in real time</p>
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+          <div className="overflow-x-auto">
+            <div className="p-4 sm:p-5 flex items-center justify-between gap-5 min-w-max bg-white">
               
-              {/* Time Range Filter */}
-              <div className="flex items-center bg-slate-50 p-1 rounded-2xl border border-slate-200 w-full sm:w-auto">
-                <button 
-                  onClick={() => setTimeFilter('Today')}
-                  className={`flex-1 sm:flex-none px-2.5 py-1.5 text-[10px] font-extrabold rounded-lg transition-all ${timeFilter === 'Today' ? 'bg-white text-orange-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'}`}
-                >
-                  Today
-                </button>
-                <button 
-                  onClick={() => setTimeFilter('Week')}
-                  className={`flex-1 sm:flex-none px-2.5 py-1.5 text-[10px] font-extrabold rounded-lg transition-all ${timeFilter === 'Week' ? 'bg-white text-orange-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'}`}
-                >
-                  This Week
-                </button>
-                <button 
-                  onClick={() => setTimeFilter('Month')}
-                  className={`flex-1 sm:flex-none px-2.5 py-1.5 text-[10px] font-extrabold rounded-lg transition-all ${timeFilter === 'Month' ? 'bg-white text-orange-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'}`}
-                >
-                  This Month
-                </button>
-                <button 
-                  onClick={() => setTimeFilter('Year')}
-                  className={`flex-1 sm:flex-none px-2.5 py-1.5 text-[10px] font-extrabold rounded-lg transition-all ${timeFilter === 'Year' ? 'bg-white text-orange-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'}`}
-                >
-                  This Year
-                </button>
+              {/* Left: Icon + Title & Description */}
+              <div className="flex items-center gap-3.5 shrink-0">
+                <div className="w-11 h-11 rounded-2xl bg-[#fff4ed] flex items-center justify-center shrink-0 border border-orange-100/60">
+                  <Users className="w-5 h-5 text-orange-500 stroke-[2.2]" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <h3 className="text-[15px] font-extrabold text-slate-900 tracking-tight whitespace-nowrap">
+                      Registered Students Directory & Company Fee Records
+                    </h3>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#e8f8ee] text-[#15803d] shrink-0">
+                      <span className="w-2 h-2 rounded-full bg-[#22c55e]"></span>
+                      {filteredStudents.length} Active Records
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1 font-normal whitespace-nowrap">
+                    Track total course fees, payments made, pending balances and manage records in real time.
+                  </p>
+                </div>
               </div>
 
-              {/* Search Bar */}
-              <div className="relative flex-1 sm:w-64">
-                <Search className="w-4 h-4 text-orange-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search by student name or email..."
-                  value={studentSearch}
-                  onChange={(e) => {
-                    setStudentSearch(e.target.value);
-                    setStudentPage(1);
-                  }}
-                  className="w-full pl-9 pr-8 py-2 text-[11px] rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white focus:outline-none focus:border-orange-500 transition-all font-medium text-slate-800 placeholder:text-slate-400"
-                />
-                {studentSearch && (
-                  <button 
-                    onClick={() => setStudentSearch('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              {/* Vertical Divider */}
+              <div className="h-11 w-px bg-slate-200 mx-2 shrink-0"></div>
+
+              {/* Right: Controls in 2 exact rows */}
+              <div className="flex flex-col gap-2 shrink-0">
+                
+                {/* Row 1: Time Pills + Search + Filters (NEVER WRAPS) */}
+                <div className="flex items-center gap-2.5 flex-nowrap">
+                  
+                  {/* Time Range Dropdown */}
+                  <div className="relative flex items-center shrink-0">
+                    <Calendar className="w-3.5 h-3.5 text-slate-700 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select
+                      value={timeFilter}
+                      onChange={(e) => setTimeFilter(e.target.value as any)}
+                      className="pl-8 pr-7 py-1.5 text-[11px] font-medium text-slate-800 bg-white rounded-xl border border-slate-200 hover:border-slate-300 focus:outline-none focus:border-slate-300 cursor-pointer appearance-none transition-all"
+                    >
+                      <option value="Today">Today</option>
+                      <option value="Week">This Week</option>
+                      <option value="Month">This Month</option>
+                      <option value="Year">This Year</option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+
+                  {/* Search Bar */}
+                  <div className="relative shrink-0">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Search by student"
+                      value={studentSearch}
+                      onChange={(e) => {
+                        setStudentSearch(e.target.value);
+                        setStudentPage(1);
+                      }}
+                      className="pl-8.5 pr-7 py-1.5 text-[11px] rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-slate-300 text-slate-800 placeholder:text-slate-400 w-36 transition-all"
+                    />
+                    {studentSearch && (
+                      <button 
+                        onClick={() => setStudentSearch('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Fee Status Filter Dropdown */}
+                  <div className="relative flex items-center shrink-0">
+                    <Filter className="w-3.5 h-3.5 text-slate-700 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select
+                      value={feeStatusFilter}
+                      onChange={(e) => {
+                        setFeeStatusFilter(e.target.value);
+                        setStudentPage(1);
+                      }}
+                      className="pl-8 pr-7 py-1.5 text-[11px] font-medium text-slate-800 bg-white rounded-xl border border-slate-200 hover:border-slate-300 focus:outline-none focus:border-slate-300 cursor-pointer appearance-none transition-all"
+                    >
+                      <option value="All">All Fee Status</option>
+                      <option value="Paid">Fully Paid</option>
+                      <option value="Partial">Partial Dues</option>
+                      <option value="Unpaid">Unpaid</option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+
+                  {/* Batch Filter Dropdown */}
+                  <div className="relative flex items-center shrink-0">
+                    <GraduationCap className="w-3.5 h-3.5 text-slate-700 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select
+                      value={selectedBatch}
+                      onChange={(e) => {
+                        setSelectedBatch(e.target.value);
+                        setStudentPage(1);
+                      }}
+                      className="pl-8 pr-7 py-1.5 text-[11px] font-medium text-slate-800 bg-white rounded-xl border border-slate-200 hover:border-slate-300 focus:outline-none focus:border-slate-300 cursor-pointer appearance-none transition-all"
+                    >
+                      <option value="All">All Batches</option>
+                      {availableBatches.map(b => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+
+                </div>
+
+                {/* Row 2: Sync Data & Export Excel Buttons */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetData();
+                      alert('Data synced! Batch RK-Gurukul-DS and all updated student records are now live.');
+                    }}
+                    title="Click to sync new batches and refresh student records"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-orange-500 bg-white hover:bg-orange-50 text-orange-600 font-bold text-[11px] transition-all shadow-xs active:scale-95 cursor-pointer"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <RefreshCw className="w-3.5 h-3.5 text-orange-500" />
+                    <span>Sync Data</span>
                   </button>
-                )}
+
+                  <button
+                    type="button"
+                    onClick={handleExportExcel}
+                    disabled={isExportingExcel}
+                    title="Export styled Excel spreadsheet (.xlsx) with Websums Software logo"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-emerald-500 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 font-bold text-[11px] transition-all shadow-xs active:scale-95 cursor-pointer disabled:opacity-60"
+                  >
+                    {isExportingExcel ? (
+                      <Loader2 className="w-3.5 h-3.5 text-emerald-700 animate-spin" />
+                    ) : (
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+                    )}
+                    <span>{isExportingExcel ? 'Exporting...' : 'Export Excel'}</span>
+                  </button>
+                </div>
+
               </div>
 
-              {/* Fee Status Filter Dropdown */}
-              <div className="relative">
-                <select
-                  value={feeStatusFilter}
-                  onChange={(e) => {
-                    setFeeStatusFilter(e.target.value);
-                    setStudentPage(1);
-                  }}
-                  className="py-2 pl-3 pr-8 text-[11px] rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-white font-extrabold text-slate-700 cursor-pointer focus:outline-none focus:border-orange-500 transition-all appearance-none"
-                >
-                  <option value="All">All Fee Status</option>
-                  <option value="Paid">✅ Fully Paid</option>
-                  <option value="Partial">⚠️ Partial Dues</option>
-                  <option value="Unpaid">🔴 Unpaid</option>
-                </select>
-                <Filter className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-
-              {/* Batch Filter Dropdown */}
-              <div className="relative">
-                <select
-                  value={selectedBatch}
-                  onChange={(e) => {
-                    setSelectedBatch(e.target.value);
-                    setStudentPage(1);
-                  }}
-                  className="py-2 pl-3 pr-8 text-[11px] rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-white font-extrabold text-slate-700 cursor-pointer focus:outline-none focus:border-orange-500 transition-all appearance-none"
-                >
-                  <option value="All">All Batches</option>
-                  {availableBatches.map(b => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
-                </select>
-                <ChevronRight className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none rotate-90" />
-              </div>
-
-              {/* Sync Data Button to reload new batches & initial data */}
-              <button
-                onClick={() => {
-                  resetData();
-                  alert('Data synced! Batch RK-Gurukul-DS and all updated student records are now live.');
-                }}
-                title="Click to sync new batches and refresh student records"
-                className="py-2 px-3 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-600 font-extrabold text-[11px] flex items-center space-x-1.5 transition-all shadow-sm active:scale-95"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Sync Data</span>
-              </button>
             </div>
           </div>
 
@@ -581,17 +709,18 @@ export const CeoDashboard: React.FC = () => {
                   <th className="py-2.5 px-3">Student Info</th>
                   <th className="py-2.5 px-3">Domain & Specialization</th>
                   <th className="py-2.5 px-3">Batch & College</th>
+                  <th className="py-2.5 px-3">Attendance</th>
                   <th className="py-2.5 px-3">Total Fee</th>
                   <th className="py-2.5 px-3">Paid Amount</th>
                   <th className="py-2.5 px-3">Pending Due</th>
                   <th className="py-2.5 px-3">Fee Status</th>
-                  <th className="py-2.5 px-3 text-right">Fee Action</th>
+                  <th className="py-3 px-4 text-center font-bold text-xs uppercase text-[#0a2540] tracking-wider">Fee Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
                 {paginatedStudents.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400">
+                    <td colSpan={9} className="py-12 text-center text-slate-400">
                       <div className="flex flex-col items-center justify-center space-y-2">
                         <Users className="w-8 h-8 text-slate-300 stroke-[1.5]" />
                         <p className="font-bold text-xs text-slate-500">No students match your search or filter criteria.</p>
@@ -601,37 +730,6 @@ export const CeoDashboard: React.FC = () => {
                 ) : (
                   paginatedStudents.map((std) => {
                     const fee = std.feeDetails || { totalFee: 15000, paidAmount: 0, pendingAmount: 15000, status: 'Unpaid' };
-                    
-                    // Dynamic Domain pill badge styling
-                    const getDomainBadgeStyle = (domainName: string) => {
-                      if (domainName.includes('MERN') || domainName.includes('Full Stack')) {
-                        return 'bg-indigo-50 text-indigo-700 border-indigo-200/80 hover:bg-indigo-100';
-                      } else if (domainName.includes('AI') || domainName.includes('Artificial Intelligence') || domainName.includes('Deep Learning')) {
-                        return 'bg-purple-50 text-purple-700 border-purple-200/80 hover:bg-purple-100';
-                      } else if (domainName.includes('DevOps') || domainName.includes('Cloud')) {
-                        return 'bg-sky-50 text-sky-700 border-sky-200/80 hover:bg-sky-100';
-                      } else if (domainName.includes('UI/UX') || domainName.includes('Design')) {
-                        return 'bg-pink-50 text-pink-700 border-pink-200/80 hover:bg-pink-100';
-                      } else if (domainName.includes('Data Science')) {
-                        return 'bg-emerald-50 text-emerald-700 border-emerald-200/80 hover:bg-emerald-100';
-                      }
-                      return 'bg-orange-50 text-orange-700 border-orange-200/80 hover:bg-orange-100';
-                    };
-
-                    // Dynamic Avatar gradient based on name hash
-                    const getAvatarGradient = (name: string) => {
-                      const colors = [
-                        'from-orange-500 to-amber-500 text-white',
-                        'from-indigo-500 to-purple-500 text-white',
-                        'from-emerald-500 to-teal-500 text-white',
-                        'from-rose-500 to-pink-500 text-white',
-                        'from-sky-500 to-blue-500 text-white'
-                      ];
-                      let sum = 0;
-                      for (let i = 0; i < name.length; i++) sum += name.charCodeAt(i);
-                      return colors[sum % colors.length];
-                    };
-
                     return (
                       <tr key={std.id} className="hover:bg-slate-50/80 transition-colors group">
                         {/* Student Info with Avatar */}
@@ -645,13 +743,13 @@ export const CeoDashboard: React.FC = () => {
                                 {std.name}
                               </div>
                               <div className="text-[11px] text-slate-500 flex flex-col gap-y-1 mt-1 font-medium">
-                                <div className="flex items-center space-x-1.5 hover:text-slate-700 transition-colors">
+                                <div className="flex items-center space-x-1.5 hover:text-orange-600 transition-colors">
                                   <Mail className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                                  <span className="truncate max-w-[160px]">{std.email}</span>
+                                  <a href={`mailto:${std.email}`} className="truncate max-w-[160px] hover:text-orange-600 hover:underline" title={`Send email to ${std.email}`}>{std.email}</a>
                                 </div>
                                 <div className="flex items-center space-x-1.5 hover:text-slate-700 transition-colors">
                                   <Phone className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                                  <span className="whitespace-nowrap">{std.phone}</span>
+                                  <a href={`tel:${std.phone}`} className="whitespace-nowrap hover:text-orange-600">{std.phone}</a>
                                 </div>
                               </div>
                             </div>
@@ -677,6 +775,56 @@ export const CeoDashboard: React.FC = () => {
                               <span className="truncate max-w-[130px]">{std.college}</span>
                             </div>
                           </div>
+                        </td>
+
+                        {/* Attendance - Real-time calculated with Proof Click */}
+                        <td className="py-2.5 px-3">
+                          {(() => {
+                            const att = studentAttendanceMap[std.id];
+                            const pct = att?.totalSessions > 0 ? att.attendancePercentage : (std.attendancePercentage ?? 0);
+                            const sessions = att?.totalSessions || 0;
+                            const present = att ? (att.presentCount + att.lateCount) : 0;
+                            const isGood = pct >= 75;
+                            const isWarning = pct >= 65 && pct < 75;
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => setProofStudent(std)}
+                                title="Click to view real-time Attendance Proof & Audit Records"
+                                className="flex flex-col items-center gap-1 group/att hover:scale-105 transition-transform cursor-pointer mx-auto"
+                              >
+                                <div className="relative w-11 h-11">
+                                  <svg className="w-11 h-11 -rotate-90" viewBox="0 0 36 36">
+                                    <circle cx="18" cy="18" r="15.5" fill="none" stroke="#e2e8f0" strokeWidth="3" />
+                                    <circle
+                                      cx="18" cy="18" r="15.5" fill="none"
+                                      stroke={isGood ? '#10b981' : isWarning ? '#f59e0b' : '#ef4444'}
+                                      strokeWidth="3"
+                                      strokeDasharray={`${(pct / 100) * 97.4} 97.4`}
+                                      strokeLinecap="round"
+                                    />
+                                  </svg>
+                                  <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-black ${
+                                    isGood ? 'text-emerald-700' : isWarning ? 'text-amber-700' : 'text-rose-700'
+                                  }`}>
+                                    {pct}%
+                                  </span>
+                                </div>
+                                {sessions > 0 && (
+                                  <span className="text-[9px] font-bold text-slate-400 group-hover/att:text-orange-600 transition-colors">
+                                    {present}/{sessions}
+                                  </span>
+                                )}
+                                <span className={`text-[8px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-full ${
+                                  isGood ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/60' :
+                                  isWarning ? 'bg-amber-50 text-amber-600 border border-amber-200/60' :
+                                  'bg-rose-50 text-rose-600 border border-rose-200/60'
+                                }`}>
+                                  {isGood ? 'Eligible' : isWarning ? 'Warning' : 'Critical'}
+                                </span>
+                              </button>
+                            );
+                          })()}
                         </td>
 
                         {/* Total Fee */}
@@ -727,18 +875,54 @@ export const CeoDashboard: React.FC = () => {
                           )}
                         </td>
 
-                        {/* Record Payment Button */}
-                        <td className="py-2.5 px-3 text-right">
-                          <button
-                            onClick={() => {
-                              setSelectedStudentForFee(std);
-                              setShowFeeModal(true);
-                            }}
-                            className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-[10px] font-extrabold transition-all shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 flex items-center space-x-1.5 ml-auto whitespace-nowrap cursor-pointer active:scale-95 border border-emerald-500/20"
-                          >
-                            <DollarSign className="w-3.5 h-3.5 stroke-[2.5]" />
-                            <span>Record Payment</span>
-                          </button>
+                        {/* Actions: View, Edit, Payment, Proof, Delete */}
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center gap-1.5 justify-center">
+                            {/* View */}
+                            <button
+                              onClick={() => { setSelectedStudentForView(std); setShowViewStudentModal(true); }}
+                              title="View Details"
+                              className="w-8 h-8 rounded-lg bg-[#eff6ff] border border-[#dbeafe] text-[#0066cc] hover:bg-[#dbeafe] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                            >
+                              <Eye className="w-4 h-4 stroke-[2.2]" />
+                            </button>
+                            {/* Edit */}
+                            <button
+                              onClick={() => {
+                                setSelectedStudentForEdit(std);
+                                setEditStudentForm({ name: std.name || '', email: std.email || '', phone: std.phone || '', domain: std.domain || '', batch: std.batch || '', college: std.college || '' });
+                                setShowEditStudentModal(true);
+                              }}
+                              title="Edit Info"
+                              className="w-8 h-8 rounded-lg bg-[#eff6ff] border border-[#dbeafe] text-[#0066cc] hover:bg-[#dbeafe] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                            >
+                              <Pencil className="w-4 h-4 stroke-[2.2]" />
+                            </button>
+                            {/* Payment */}
+                            <button
+                              onClick={() => { setSelectedStudentForFee(std); setShowFeeModal(true); }}
+                              title="Record Payment"
+                              className="w-8 h-8 rounded-lg bg-[#eff6ff] border border-[#dbeafe] text-[#0066cc] hover:bg-[#dbeafe] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                            >
+                              <DollarSign className="w-4 h-4 stroke-[2.2]" />
+                            </button>
+                            {/* Attendance Proof */}
+                            <button
+                              onClick={() => setProofStudent(std)}
+                              title="View Attendance Audit Proof"
+                              className="w-8 h-8 rounded-lg bg-[#ecfdf5] border border-[#a7f3d0] text-[#059669] hover:bg-[#d1fae5] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                            >
+                              <CalendarCheck className="w-4 h-4 stroke-[2.2]" />
+                            </button>
+                            {/* Delete */}
+                            <button
+                              onClick={() => setStudentToDelete(std)}
+                              title="Delete Student"
+                              className="w-8 h-8 rounded-lg bg-[#fff1f2] border border-[#ffe4e6] text-[#ef4444] hover:bg-[#ffe4e6] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95"
+                            >
+                              <Trash2 className="w-4 h-4 stroke-[2.2]" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -902,60 +1086,355 @@ export const CeoDashboard: React.FC = () => {
       )}
 
       {/* SUB TAB 4: MENTORS DIRECTORY */}
-      {activeSubTab === 'mentors' && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Assigned Senior Mentors</h3>
-              <p className="text-xs text-slate-500">Manage mentor loads, domain allocations, and add new instructors</p>
-            </div>
-            <button
-              onClick={() => setShowAddMentorModal(true)}
-              className="px-4 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl shadow-md transition-all flex items-center space-x-1.5"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>+ Add New Mentor</span>
-            </button>
-          </div>
+      {activeSubTab === 'mentors' && (() => {
+        const filteredMentors = mentors.filter(mnt => {
+          const q = (mentorSearch || '').trim().toLowerCase();
+          const matchesSearch = !q ||
+            (mnt.name || '').toLowerCase().includes(q) ||
+            (mnt.email || '').toLowerCase().includes(q) ||
+            (mnt.phone || '').toLowerCase().includes(q) ||
+            (mnt.assignedDomains || []).some(d => (d || '').toLowerCase().includes(q));
+          const matchesDomain = mentorDomainFilter === 'All' || (mnt.assignedDomains || []).includes(mentorDomainFilter);
+          return matchesSearch && matchesDomain;
+        });
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {mentors.map((mnt) => (
-              <div key={mnt.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-card space-y-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 rounded-full bg-orange-100 text-orange-700 font-bold flex items-center justify-center text-base">
-                    {mnt.name.charAt(0)}
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-900 text-sm">{mnt.name}</h4>
-                    <p className="text-xs text-slate-500">{mnt.email}</p>
-                  </div>
+        const totalInternsGuided = mentors.reduce((acc, m) => acc + (m.totalStudents || 0), 0) || students.length;
+        const coveredDomainsCount = new Set(mentors.flatMap(m => m.assignedDomains || [])).size || INITIAL_DOMAINS.length;
+        const avgFacultyRating = mentors.length 
+          ? (mentors.reduce((acc, m) => acc + (m.rating || 5.0), 0) / mentors.length).toFixed(1) 
+          : '5.0';
+
+        return (
+          <div className="space-y-6 animate-in fade-in duration-300">
+            {/* Header Stats Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-sm flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-slate-500">Senior Mentors</p>
+                  <h3 className="text-2xl font-black text-slate-900 mt-0.5">{mentors.length}</h3>
+                  <span className="text-[11px] font-bold text-emerald-600 flex items-center mt-0.5">
+                    <CheckCircle2 className="w-3 h-3 mr-1" /> Active Faculty
+                  </span>
                 </div>
-
-                <div className="space-y-2 text-xs">
-                  <div>
-                    <span className="text-slate-400 font-medium">Assigned Domains:</span>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {mnt.assignedDomains.map((d, i) => (
-                        <span key={i} className="px-2 py-0.5 rounded bg-orange-50 text-orange-700 font-semibold text-[10px]">
-                          {d}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t border-slate-100 text-slate-600">
-                    <span>Total Interns Managed:</span>
-                    <span className="font-bold text-slate-900">{mnt.totalStudents}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>Mentor Rating:</span>
-                    <span className="font-bold text-amber-500">⭐ {mnt.rating} / 5.0</span>
-                  </div>
+                <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center">
+                  <Users className="w-6 h-6 stroke-[2.5]" />
                 </div>
               </div>
-            ))}
+
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-sm flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-slate-500">Interns Under Guidance</p>
+                  <h3 className="text-2xl font-black text-slate-900 mt-0.5">{totalInternsGuided}</h3>
+                  <span className="text-[11px] font-bold text-orange-600 flex items-center mt-0.5">
+                    <GraduationCap className="w-3 h-3 mr-1" /> Across all batches
+                  </span>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <GraduationCap className="w-6 h-6 stroke-[2.5]" />
+                </div>
+              </div>
+
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-sm flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-slate-500">Covered Domains</p>
+                  <h3 className="text-2xl font-black text-slate-900 mt-0.5">{coveredDomainsCount}</h3>
+                  <span className="text-[11px] font-bold text-indigo-600 flex items-center mt-0.5">
+                    <Layers className="w-3 h-3 mr-1" /> Tech Stacks
+                  </span>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <BookOpen className="w-6 h-6 stroke-[2.5]" />
+                </div>
+              </div>
+
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-sm flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-slate-500">Avg Faculty Rating</p>
+                  <h3 className="text-2xl font-black text-slate-900 mt-0.5 flex items-center gap-1.5">
+                    <span>{avgFacultyRating}</span>
+                    <span className="text-amber-500 text-lg">★</span>
+                  </h3>
+                  <span className="text-[11px] font-bold text-amber-600 flex items-center mt-0.5">
+                    <Star className="w-3 h-3 mr-1 fill-amber-500 text-amber-500" /> High Satisfaction
+                  </span>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <Award className="w-6 h-6 stroke-[2.5]" />
+                </div>
+              </div>
+            </div>
+
+            {/* Search, Filter & Add Button Bar */}
+            <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/90 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-orange-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search mentors by name, email, phone, or domain..."
+                    value={mentorSearch}
+                    onChange={(e) => setMentorSearch(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50/80 focus:bg-white focus:outline-none focus:border-orange-500 transition-all font-medium text-slate-800 placeholder:text-slate-400"
+                  />
+                  {mentorSearch && (
+                    <button 
+                      onClick={() => setMentorSearch('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <select
+                    value={mentorDomainFilter}
+                    onChange={(e) => setMentorDomainFilter(e.target.value)}
+                    className="py-2.5 pl-3.5 pr-8 text-xs rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-white font-bold text-slate-700 cursor-pointer focus:outline-none focus:border-orange-500 transition-all appearance-none"
+                  >
+                    <option value="All">All Domains</option>
+                    {INITIAL_DOMAINS.map(d => (
+                      <option key={d.id} value={d.name}>{d.name}</option>
+                    ))}
+                  </select>
+                  <Filter className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowAddMentorModal(true)}
+                className="px-5 py-2.5 text-xs font-black text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 rounded-xl shadow-md shadow-orange-500/20 hover:shadow-lg transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-95 whitespace-nowrap"
+              >
+                <UserPlus className="w-4 h-4 stroke-[2.5]" />
+                <span>+ Add New Mentor</span>
+              </button>
+            </div>
+
+            {/* Cards Grid */}
+            {filteredMentors.length === 0 ? (
+              <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-4">
+                <div className="w-16 h-16 rounded-3xl bg-orange-50 text-orange-500 flex items-center justify-center mx-auto shadow-inner">
+                  <Users className="w-8 h-8 stroke-[1.8]" />
+                </div>
+                <div>
+                  <h4 className="text-base font-extrabold text-slate-900">No Mentors Found</h4>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {mentorSearch ? 'No mentor records match your search criteria.' : 'No faculty mentors onboarded yet.'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowAddMentorModal(true)}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl shadow-md cursor-pointer hover:shadow-lg transition-all"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Onboard First Mentor</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {filteredMentors.map((mnt) => {
+                  const cleanPhone = (mnt.phone || '').replace(/\D/g, '');
+
+                  return (
+                    <div 
+                      key={mnt.id} 
+                      className="group bg-white rounded-3xl border border-slate-200/90 hover:border-orange-300 p-6 shadow-sm hover:shadow-xl hover:shadow-orange-500/10 transition-all duration-300 flex flex-col justify-between space-y-5 relative overflow-hidden"
+                    >
+                      {/* Top Glow bar on hover */}
+                      <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-orange-500 via-amber-400 to-orange-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                      <div className="space-y-4">
+                        {/* Top Header Row with Avatar, Status, Rating & Delete */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center space-x-3.5">
+                            <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${getAvatarGradient(mnt.name)} flex items-center justify-center font-black text-xl shadow-md shadow-orange-500/15 flex-shrink-0 border-2 border-white`}>
+                              {(mnt.name || 'M').charAt(0)}
+                            </div>
+                            <div>
+                              <h4 className="font-black text-slate-900 text-base tracking-tight group-hover:text-orange-600 transition-colors">
+                                {mnt.name}
+                              </h4>
+                              <p className="text-[11px] font-semibold text-slate-500 mt-0.5 flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span className="text-emerald-700 font-bold">Active Mentor</span>
+                                <span className="text-slate-300">•</span>
+                                <span>Websums Faculty</span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <div className="px-2.5 py-1 bg-amber-50 border border-amber-200/80 rounded-xl text-amber-800 text-[11px] font-black flex items-center gap-1 shadow-2xs">
+                              <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                              <span>{mnt.rating || 5.0}</span>
+                            </div>
+
+                            <button
+                              onClick={async () => {
+                                if (window.confirm(`Are you sure you want to remove mentor "${mnt.name}"? This will delete their account credentials.`)) {
+                                  await deleteMentor(mnt.id);
+                                  setMentorToast(`Mentor "${mnt.name}" deleted successfully.`);
+                                  window.setTimeout(() => setMentorToast(null), 3500);
+                                }
+                              }}
+                              title="Delete Mentor"
+                              className="p-1.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Contact Details */}
+                        <div className="pt-3 border-t border-slate-100 space-y-2 text-xs">
+                          <div className="flex items-center justify-between text-slate-600 hover:text-slate-900 transition-colors">
+                            <div className="flex items-center space-x-2 truncate pr-2">
+                              <Mail className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
+                              <a href={`mailto:${mnt.email}`} className="truncate hover:text-orange-600 font-medium">
+                                {mnt.email}
+                              </a>
+                            </div>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(mnt.email);
+                                setCopiedField(`email-${mnt.id}`);
+                                window.setTimeout(() => setCopiedField(null), 2000);
+                              }}
+                              title="Copy email"
+                              className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-all cursor-pointer"
+                            >
+                              {copiedField === `email-${mnt.id}` ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
+
+                          <div className="flex items-center justify-between text-slate-600 hover:text-slate-900 transition-colors">
+                            <div className="flex items-center space-x-2">
+                              <Phone className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
+                              <a href={`tel:${mnt.phone}`} className="hover:text-orange-600 font-medium font-mono text-[11px]">
+                                {mnt.phone || 'N/A'}
+                              </a>
+                            </div>
+                            {cleanPhone && (
+                              <a
+                                href={`https://wa.me/${cleanPhone}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                title="Chat on WhatsApp"
+                                className="px-2 py-0.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all"
+                              >
+                                <MessageSquare className="w-3 h-3 text-emerald-600" />
+                                <span>WhatsApp</span>
+                              </a>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Prominent Login Credentials Box */}
+                        <div className="p-3.5 bg-gradient-to-br from-amber-50/80 via-orange-50/50 to-amber-50/90 border border-amber-200/80 rounded-2xl space-y-2 text-xs shadow-2xs">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-orange-950 flex items-center gap-1.5">
+                              <KeyRound className="w-3.5 h-3.5 text-orange-600" />
+                              <span>Portal Credentials</span>
+                            </span>
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                              <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                              <span>Verified Email</span>
+                            </span>
+                          </div>
+
+                          <div className="space-y-1.5 text-[11px] font-medium text-slate-700">
+                            <div className="bg-white/90 px-2.5 py-1.5 rounded-xl border border-amber-100/90 flex items-center justify-between">
+                              <span className="text-slate-500 font-semibold">Login ID:</span>
+                              <span className="font-bold text-slate-900 truncate max-w-[170px]">{mnt.email}</span>
+                            </div>
+
+                            <div className="bg-white/90 px-2.5 py-1.5 rounded-xl border border-amber-100/90 flex items-center justify-between">
+                              <span className="text-slate-500 font-semibold">Initial Password:</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold font-mono text-slate-900">{mnt.phone || 'Mobile No.'}</span>
+                                <button
+                                  onClick={() => {
+                                    if (mnt.phone) navigator.clipboard.writeText(mnt.phone);
+                                    setCopiedField(`pass-${mnt.id}`);
+                                    window.setTimeout(() => setCopiedField(null), 2000);
+                                  }}
+                                  title="Copy password"
+                                  className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                                >
+                                  {copiedField === `pass-${mnt.id}` ? (
+                                    <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />
+                                  ) : (
+                                    <Copy className="w-3 h-3" />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          <p className="text-[10px] text-slate-500 font-medium leading-tight">
+                            💡 Mentor can sign in with mobile number and reset password via email OTP anytime.
+                          </p>
+                        </div>
+
+                        {/* Specialization Domains */}
+                        <div className="space-y-1.5 text-xs">
+                          <span className="text-slate-500 font-bold text-[11px]">Specialization Domains:</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {(mnt.assignedDomains || []).map((dom, i) => (
+                              <span 
+                                key={i} 
+                                className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold border transition-all ${getDomainBadgeStyle(dom)}`}
+                              >
+                                {dom}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Assigned Batches */}
+                        {mnt.activeBatches && mnt.activeBatches.length > 0 && (
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <span className="text-slate-400 text-[10px] font-semibold">Batches:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {mnt.activeBatches.map((b, bi) => (
+                                <span key={bi} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold border border-slate-200">
+                                  {b}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Card Footer: Interns Counter & Quick Actions */}
+                      <div className="pt-3.5 border-t border-slate-100 flex items-center justify-between">
+                        <div className="flex items-center space-x-1.5 text-slate-700 font-bold text-xs">
+                          <Users className="w-4 h-4 text-orange-500" />
+                          <span>{mnt.totalStudents || 0} Interns Guided</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={`mailto:${mnt.email}`}
+                            className="px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-xl text-[11px] font-bold border border-orange-200/80 transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            <Mail className="w-3.5 h-3.5" />
+                            <span>Email</span>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* SUB TAB 5: LIVE CLASSES */}
       {activeSubTab === 'live-classes' && (
@@ -1102,6 +1581,10 @@ export const CeoDashboard: React.FC = () => {
       <AddMentorModal
         isOpen={showAddMentorModal}
         onClose={() => setShowAddMentorModal(false)}
+        onMentorAdded={(name) => {
+          setMentorToast(`New mentor added successfully! ${name} is now onboarded.`);
+          window.setTimeout(() => setMentorToast(null), 4000);
+        }}
       />
 
       <PdfResumeModal
@@ -1123,84 +1606,641 @@ export const CeoDashboard: React.FC = () => {
         student={selectedStudentForFee}
       />
 
-      {/* Add New Student Modal */}
-      {showAddStudentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <h3 className="text-lg font-bold text-slate-900">Add New Student</h3>
-            <form onSubmit={handleAddStudentSubmit} className="space-y-3 text-xs">
-              <input
-                type="text"
-                required
-                placeholder="Full Name"
-                value={newStudent.name}
-                onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
-                className="w-full p-2.5 rounded-xl border border-slate-200"
-              />
-              <input
-                type="email"
-                required
-                placeholder="Email Address"
-                value={newStudent.email}
-                onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })}
-                className="w-full p-2.5 rounded-xl border border-slate-200"
-              />
-              <input
-                type="tel"
-                required
-                placeholder="Phone Number"
-                value={newStudent.phone}
-                onChange={(e) => setNewStudent({ ...newStudent, phone: e.target.value })}
-                className="w-full p-2.5 rounded-xl border border-slate-200"
-              />
-              <select
-                value={newStudent.domain}
-                onChange={(e) => setNewStudent({ ...newStudent, domain: e.target.value })}
-                className="w-full p-2.5 rounded-xl border border-slate-200"
-              >
-                {INITIAL_DOMAINS.map((d) => (
-                  <option key={d.id} value={d.name}>{d.name}</option>
-                ))}
-              </select>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] text-slate-500 font-bold mb-1">Total Fee (₹)</label>
-                  <input
-                    type="number"
-                    value={newStudent.totalFee}
-                    onChange={(e) => setNewStudent({ ...newStudent, totalFee: Number(e.target.value) })}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 font-bold"
-                  />
+      {/* Edit Student Modal */}
+      {showEditStudentModal && selectedStudentForEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.35)] border border-slate-100 overflow-hidden animate-in zoom-in-95 fade-in duration-200 space-y-5">
+            {/* Ambient Background Gradient Accents */}
+            <div className="absolute -top-24 -right-24 w-60 h-60 bg-gradient-to-br from-orange-400/20 via-amber-300/15 to-transparent rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 w-60 h-60 bg-gradient-to-tr from-sky-400/10 via-indigo-300/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+
+            {/* Header */}
+            <div className="relative flex items-start justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#FF7600] to-amber-400 text-white flex items-center justify-center shadow-lg shadow-orange-500/25 ring-4 ring-orange-50 shrink-0">
+                  <Pencil className="w-5 h-5 stroke-[2.5]" />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-slate-500 font-bold mb-1">Initial Paid (₹)</label>
-                  <input
-                    type="number"
-                    value={newStudent.paidAmount}
-                    onChange={(e) => setNewStudent({ ...newStudent, paidAmount: Number(e.target.value) })}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 font-bold"
-                  />
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight">Edit Student Info</h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-orange-100 text-orange-700 border border-orange-200/80">
+                      Websums Portal
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    <span>Update record for</span>
+                    <span className="font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200/60">
+                      {selectedStudentForEdit.name}
+                    </span>
+                  </p>
                 </div>
               </div>
-              <div className="flex justify-end space-x-2 pt-2">
+              <button
+                onClick={() => setShowEditStudentModal(false)}
+                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick Context Card */}
+            <div className="relative p-3 bg-gradient-to-r from-slate-50 via-orange-50/25 to-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-between text-xs flex-wrap gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-slate-900 text-white font-black text-xs flex items-center justify-center shadow-sm">
+                  {selectedStudentForEdit.name?.charAt(0) || 'S'}
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-900 leading-tight">{selectedStudentForEdit.name}</p>
+                  <p className="text-[10px] font-mono text-slate-500">ID: {selectedStudentForEdit.userId || selectedStudentForEdit.id}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-semibold text-slate-400">Fee Status:</span>
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide border ${
+                  selectedStudentForEdit.feeDetails?.status === 'Paid'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : selectedStudentForEdit.feeDetails?.status === 'Partial'
+                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                    : 'bg-rose-50 text-rose-700 border-rose-200'
+                }`}>
+                  {selectedStudentForEdit.feeDetails?.status || 'Unpaid'}
+                </span>
+              </div>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                updateStudent(selectedStudentForEdit.id, {
+                  name: editStudentForm.name,
+                  email: editStudentForm.email,
+                  phone: editStudentForm.phone,
+                  domain: editStudentForm.domain,
+                  batch: editStudentForm.batch,
+                  college: editStudentForm.college
+                });
+                setShowEditStudentModal(false);
+                setMentorToast(`Student "${editStudentForm.name}" updated successfully!`);
+                window.setTimeout(() => setMentorToast(null), 3500);
+              }}
+              className="relative space-y-4 text-xs"
+            >
+              <div className="grid grid-cols-2 gap-3.5">
+                {/* Full Name */}
+                <div className="col-span-2">
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-orange-500" />
+                    <span>Full Name</span>
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="Student Full Name"
+                      value={editStudentForm.name}
+                      onChange={(e) => setEditStudentForm({ ...editStudentForm, name: e.target.value })}
+                      className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white focus:bg-white font-semibold text-slate-800 focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/15 transition-all shadow-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Email Address */}
+                <div className="col-span-2">
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-orange-500" />
+                    <span>Email Address</span>
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="email"
+                      required
+                      placeholder="student@example.com"
+                      value={editStudentForm.email}
+                      onChange={(e) => setEditStudentForm({ ...editStudentForm, email: e.target.value })}
+                      className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white focus:bg-white font-semibold text-slate-800 focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/15 transition-all shadow-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Phone Number */}
+                <div className="col-span-2">
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-orange-500" />
+                    <span>Phone Number</span>
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="tel"
+                      placeholder="+91 XXXXX XXXXX"
+                      value={editStudentForm.phone}
+                      onChange={(e) => setEditStudentForm({ ...editStudentForm, phone: e.target.value })}
+                      className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white focus:bg-white font-semibold text-slate-800 focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/15 transition-all shadow-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Domain */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-orange-500" />
+                    <span>Domain Track</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={editStudentForm.domain}
+                      onChange={(e) => setEditStudentForm({ ...editStudentForm, domain: e.target.value })}
+                      className="w-full pl-3.5 pr-8 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white focus:bg-white font-semibold text-slate-800 focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/15 transition-all shadow-xs appearance-none cursor-pointer"
+                    >
+                      {INITIAL_DOMAINS.map((d) => (
+                        <option key={d.id} value={d.name}>{d.name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Batch */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-orange-500" />
+                    <span>Batch Code</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={editStudentForm.batch}
+                      onChange={(e) => setEditStudentForm({ ...editStudentForm, batch: e.target.value })}
+                      className="w-full pl-3.5 pr-8 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white focus:bg-white font-semibold text-slate-800 focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/15 transition-all shadow-xs appearance-none cursor-pointer"
+                    >
+                      {availableBatches.map((b) => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* College / Institution */}
+                <div className="col-span-2">
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <GraduationCap className="w-3.5 h-3.5 text-orange-500" />
+                    <span>College / Institution</span>
+                  </label>
+                  <div className="relative">
+                    <GraduationCap className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="College or University Name"
+                      value={editStudentForm.college}
+                      onChange={(e) => setEditStudentForm({ ...editStudentForm, college: e.target.value })}
+                      className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white focus:bg-white font-semibold text-slate-800 focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/15 transition-all shadow-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setShowAddStudentModal(false)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold"
+                  onClick={() => setShowEditStudentModal(false)}
+                  className="px-5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs transition-all shadow-xs active:scale-95 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-orange-500 text-white rounded-xl font-bold"
+                  className="px-6 py-2.5 bg-gradient-to-r from-[#FF7600] via-orange-600 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/35 flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
                 >
-                  Save Student
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  <span>Save Changes</span>
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* ── View Student Details Modal ────────────────────────────── */}
+      {showViewStudentModal && selectedStudentForView && (() => {
+        const sv = selectedStudentForView;
+        const fee = sv.feeDetails || { totalFee: 15000, paidAmount: 0, pendingAmount: 15000, status: 'Unpaid', transactions: [] };
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-200">
+              {/* Header gradient */}
+              <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 p-6 relative overflow-hidden">
+                <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/10" />
+                <div className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full bg-white/10" />
+                <div className="relative flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${getAvatarGradient(sv.name)} flex items-center justify-center font-black text-2xl shadow-lg border-2 border-white/40`}>
+                      {(sv.name || 'S').charAt(0)}
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-white tracking-tight">{sv.name}</h3>
+                      <p className="text-xs font-semibold text-white/80 mt-0.5 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
+                        Active Intern
+                      </p>
+                    </div>
+                  </div>
+                  <button onClick={() => setShowViewStudentModal(false)} className="p-2 bg-white/20 hover:bg-white/30 rounded-xl text-white transition-all">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+                {/* Contact */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1"><Mail className="w-3 h-3" /> Email</p>
+                    <a href={`mailto:${sv.email}`} className="text-xs font-semibold text-orange-600 hover:underline break-all">{sv.email}</a>
+                  </div>
+                  <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1"><Phone className="w-3 h-3" /> Phone</p>
+                    <a href={`tel:${sv.phone}`} className="text-xs font-semibold text-slate-800">{sv.phone || 'N/A'}</a>
+                  </div>
+                  <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Domain</p>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-extrabold border ${getDomainBadgeStyle(sv.domain)}`}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-current" />{sv.domain}
+                    </span>
+                  </div>
+                  <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Batch</p>
+                    <span className="text-xs font-bold text-slate-800">{sv.batch}</span>
+                  </div>
+                  <div className="col-span-2 bg-slate-50 rounded-2xl p-3.5 border border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1"><GraduationCap className="w-3 h-3" /> College</p>
+                    <span className="text-xs font-semibold text-slate-800">{sv.college || 'N/A'}</span>
+                  </div>
+                </div>
+
+                {/* Attendance Summary */}
+                {(() => {
+                  const att = studentAttendanceMap[sv.id];
+                  const pct = att?.totalSessions > 0 ? att.attendancePercentage : (sv.attendancePercentage ?? 0);
+                  const sessions = att?.totalSessions || 0;
+                  const present = att?.presentCount || 0;
+                  const late = att?.lateCount || 0;
+                  const absent = att?.absentCount || 0;
+                  const isGood = pct >= 75;
+                  const isWarning = pct >= 65 && pct < 75;
+                  return (
+                    <div className={`rounded-2xl p-4 border ${
+                      isGood ? 'bg-gradient-to-br from-emerald-50 to-teal-50/30 border-emerald-100/80' :
+                      isWarning ? 'bg-gradient-to-br from-amber-50 to-yellow-50/30 border-amber-100/80' :
+                      'bg-gradient-to-br from-rose-50 to-pink-50/30 border-rose-100/80'
+                    }`}>
+                      <p className={`text-[10px] font-black uppercase tracking-wider mb-3 flex items-center gap-1.5 ${
+                        isGood ? 'text-emerald-900' : isWarning ? 'text-amber-900' : 'text-rose-900'
+                      }`}>
+                        <CalendarCheck className={`w-3.5 h-3.5 ${isGood ? 'text-emerald-600' : isWarning ? 'text-amber-600' : 'text-rose-600'}`} />
+                        Monthly Attendance Report
+                      </p>
+                      <div className="grid grid-cols-4 gap-2 text-center">
+                        <div className="bg-white rounded-xl p-2 border border-slate-100">
+                          <p className="text-[10px] text-slate-500 font-bold">Sessions</p>
+                          <p className="text-sm font-black text-slate-800">{sessions}</p>
+                        </div>
+                        <div className="bg-emerald-50 rounded-xl p-2 border border-emerald-100">
+                          <p className="text-[10px] text-emerald-600 font-bold">Present</p>
+                          <p className="text-sm font-black text-emerald-700">{present}</p>
+                        </div>
+                        <div className="bg-amber-50 rounded-xl p-2 border border-amber-100">
+                          <p className="text-[10px] text-amber-600 font-bold">Late</p>
+                          <p className="text-sm font-black text-amber-700">{late}</p>
+                        </div>
+                        <div className="bg-rose-50 rounded-xl p-2 border border-rose-100">
+                          <p className="text-[10px] text-rose-600 font-bold">Absent</p>
+                          <p className="text-sm font-black text-rose-700">{absent}</p>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="relative w-10 h-10">
+                            <svg className="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
+                              <circle cx="18" cy="18" r="14" fill="none" stroke="#e2e8f0" strokeWidth="3" />
+                              <circle cx="18" cy="18" r="14" fill="none"
+                                stroke={isGood ? '#10b981' : isWarning ? '#f59e0b' : '#ef4444'}
+                                strokeWidth="3" strokeDasharray={`${(pct / 100) * 88} 88`} strokeLinecap="round"
+                              />
+                            </svg>
+                            <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-black ${
+                              isGood ? 'text-emerald-700' : isWarning ? 'text-amber-700' : 'text-rose-700'
+                            }`}>{pct}%</span>
+                          </div>
+                          <div>
+                            <p className={`text-xs font-black ${
+                              isGood ? 'text-emerald-700' : isWarning ? 'text-amber-700' : 'text-rose-700'
+                            }`}>{pct}% Attendance</p>
+                            <p className="text-[10px] text-slate-500 font-medium">{att?.complianceMessage || 'No sessions recorded yet'}</p>
+                          </div>
+                        </div>
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border ${
+                          isGood ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                          isWarning ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                          'bg-rose-100 text-rose-700 border-rose-200'
+                        }`}>
+                          {isGood ? '✅ Eligible' : isWarning ? '⚠️ Warning' : '🔴 Critical'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Fee Summary */}
+                <div className="bg-gradient-to-br from-slate-50 to-orange-50/30 rounded-2xl p-4 border border-orange-100/80">
+                  <p className="text-[10px] font-black text-orange-900 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <IndianRupee className="w-3.5 h-3.5 text-orange-600" /> Fee Summary
+                  </p>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-white rounded-xl p-2.5 border border-slate-100">
+                      <p className="text-[10px] text-slate-500 font-bold">Total</p>
+                      <p className="text-sm font-black text-slate-900">₹{fee.totalFee.toLocaleString('en-IN')}</p>
+                    </div>
+                    <div className="bg-emerald-50 rounded-xl p-2.5 border border-emerald-100">
+                      <p className="text-[10px] text-emerald-600 font-bold">Paid</p>
+                      <p className="text-sm font-black text-emerald-700">₹{fee.paidAmount.toLocaleString('en-IN')}</p>
+                    </div>
+                    <div className={`${fee.pendingAmount > 0 ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-100'} rounded-xl p-2.5 border`}>
+                      <p className={`text-[10px] font-bold ${fee.pendingAmount > 0 ? 'text-rose-600' : 'text-slate-400'}`}>Due</p>
+                      <p className={`text-sm font-black ${fee.pendingAmount > 0 ? 'text-rose-700' : 'text-slate-400'}`}>₹{fee.pendingAmount.toLocaleString('en-IN')}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="space-y-2 pt-1">
+                  <button
+                    onClick={() => {
+                      setShowViewStudentModal(false);
+                      setProofStudent(sv);
+                    }}
+                    className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 transition-all active:scale-95 cursor-pointer"
+                  >
+                    <CalendarCheck className="w-4 h-4" /> View Full Attendance Proof & Official Audit Log
+                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setShowViewStudentModal(false); setSelectedStudentForEdit(sv); setEditStudentForm({ name: sv.name || '', email: sv.email || '', phone: sv.phone || '', domain: sv.domain || '', batch: sv.batch || '', college: sv.college || '' }); setShowEditStudentModal(true); }}
+                      className="flex-1 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-indigo-500/20 transition-all active:scale-95"
+                    >
+                      <Pencil className="w-3.5 h-3.5" /> Edit Info
+                    </button>
+                    <button
+                      onClick={() => { setShowViewStudentModal(false); setSelectedStudentForFee(sv); setShowFeeModal(true); }}
+                      className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20 transition-all active:scale-95"
+                    >
+                      <DollarSign className="w-3.5 h-3.5" /> Record Payment
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Delete Confirm Dialog ─────────────────────────────────── */}
+      {studentToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-in zoom-in-95 fade-in duration-200">
+            <div className="w-14 h-14 rounded-2xl bg-rose-100 flex items-center justify-center mx-auto">
+              <Trash2 className="w-7 h-7 text-rose-600" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-base font-black text-slate-900">Delete Student?</h3>
+              <p className="text-xs text-slate-500 mt-1">Are you sure you want to remove <span className="font-bold text-rose-600">{studentToDelete.name}</span> from the records? This cannot be undone.</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setStudentToDelete(null)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  deleteStudent(studentToDelete.id);
+                  setMentorToast(`Student "${studentToDelete.name}" deleted.`);
+                  window.setTimeout(() => setMentorToast(null), 3000);
+                  setStudentToDelete(null);
+                }}
+                className="flex-1 py-2.5 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white rounded-xl font-black text-xs shadow-md shadow-rose-500/20 transition-all active:scale-95"
+              >
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add New Student Modal (Redesigned) ───────────────────── */}
+      {showAddStudentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-200">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 px-6 py-5 relative overflow-hidden">
+              <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-white/10" />
+              <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-white/10" />
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center">
+                    <UserPlus className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-white tracking-tight">Add New Student</h3>
+                    <p className="text-xs text-white/75 font-medium">Fill all details to enroll a student</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowAddStudentModal(false)} className="p-2 bg-white/20 hover:bg-white/30 rounded-xl text-white transition-all">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Form Body */}
+            <form onSubmit={handleAddStudentSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+              {/* Row 1: Name */}
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Full Name *</label>
+                <div className="relative">
+                  <Users className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text" required
+                    placeholder="e.g. Rahul Sharma"
+                    value={newStudent.name}
+                    onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
+                    className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 font-semibold text-sm text-slate-800 transition-all placeholder:text-slate-300"
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: Email + Phone */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Email *</label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="email" required
+                      placeholder="student@email.com"
+                      value={newStudent.email}
+                      onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })}
+                      className="w-full pl-9 pr-3 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 font-semibold text-sm text-slate-800 transition-all placeholder:text-slate-300"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Phone *</label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="tel" required
+                      placeholder="+91 98765 43210"
+                      value={newStudent.phone}
+                      onChange={(e) => setNewStudent({ ...newStudent, phone: e.target.value })}
+                      className="w-full pl-9 pr-3 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 font-semibold text-sm text-slate-800 transition-all placeholder:text-slate-300"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 3: Domain */}
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Specialization Domain *</label>
+                <div className="relative">
+                  <Briefcase className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <select
+                    value={newStudent.domain}
+                    onChange={(e) => setNewStudent({ ...newStudent, domain: e.target.value })}
+                    className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 font-semibold text-sm text-slate-800 transition-all appearance-none bg-white"
+                  >
+                    {INITIAL_DOMAINS.map((d) => (
+                      <option key={d.id} value={d.name}>{d.name}</option>
+                    ))}
+                  </select>
+                  <ChevronRight className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none rotate-90" />
+                </div>
+              </div>
+
+              {/* Row 4: Batch + College */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Batch *</label>
+                  <div className="relative">
+                    <Users className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select
+                      value={newStudent.batch}
+                      onChange={(e) => setNewStudent({ ...newStudent, batch: e.target.value })}
+                      className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 font-semibold text-sm text-slate-800 transition-all appearance-none bg-white"
+                    >
+                      {availableBatches.map((b) => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
+                    <ChevronRight className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none rotate-90" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">College / Institute *</label>
+                  <div className="relative">
+                    <GraduationCap className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text" required
+                      placeholder="College Name"
+                      value={newStudent.college}
+                      onChange={(e) => setNewStudent({ ...newStudent, college: e.target.value })}
+                      className="w-full pl-9 pr-3 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 font-semibold text-sm text-slate-800 transition-all placeholder:text-slate-300"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 5: Fee Section */}
+              <div className="bg-gradient-to-br from-emerald-50 to-teal-50/50 rounded-2xl p-4 border border-emerald-100 space-y-3">
+                <p className="text-[10px] font-black text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <IndianRupee className="w-3.5 h-3.5" /> Fee Details
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-emerald-700 font-bold mb-1">Total Fee (₹)</label>
+                    <input
+                      type="number" min={0}
+                      value={newStudent.totalFee}
+                      onChange={(e) => setNewStudent({ ...newStudent, totalFee: Number(e.target.value) })}
+                      className="w-full p-2.5 rounded-xl border border-emerald-200 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 font-black text-sm text-emerald-900 bg-white transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-emerald-700 font-bold mb-1">Initial Paid (₹)</label>
+                    <input
+                      type="number" min={0}
+                      value={newStudent.paidAmount}
+                      onChange={(e) => setNewStudent({ ...newStudent, paidAmount: Number(e.target.value) })}
+                      className="w-full p-2.5 rounded-xl border border-emerald-200 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 font-black text-sm text-emerald-900 bg-white transition-all"
+                    />
+                  </div>
+                </div>
+                {/* Live fee preview */}
+                <div className="flex items-center gap-3 pt-1 text-xs">
+                  <span className="flex-1 text-center">
+                    <span className="text-slate-500">Due: </span>
+                    <span className="font-black text-rose-600">₹{Math.max(0, newStudent.totalFee - newStudent.paidAmount).toLocaleString('en-IN')}</span>
+                  </span>
+                  <span className="flex-1 text-center">
+                    <span className="text-slate-500">Status: </span>
+                    <span className={`font-black ${
+                      newStudent.paidAmount >= newStudent.totalFee ? 'text-emerald-600' :
+                      newStudent.paidAmount > 0 ? 'text-amber-600' : 'text-rose-600'
+                    }`}>
+                      {newStudent.paidAmount >= newStudent.totalFee ? '✅ Paid' : newStudent.paidAmount > 0 ? '⚠️ Partial' : '🔴 Unpaid'}
+                    </span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Footer Buttons */}
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowAddStudentModal(false)}
+                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl font-black text-sm shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 transition-all active:scale-95"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Enroll Student
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Attendance Report Preview Modal */}
+      <AttendanceReportPreviewModal
+        report={previewReport}
+        onClose={() => setPreviewReport(null)}
+      />
+
+      {/* Real-time Student Attendance Proof Modal */}
+      <StudentAttendanceProofModal
+        isOpen={!!proofStudent}
+        onClose={() => setProofStudent(null)}
+        student={proofStudent}
+        attendanceReports={attendanceReports}
+      />
 
     </div>
   );

@@ -7,7 +7,7 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   defaultRole?: Role;
-  onSuccess?: (message?: string) => void;
+  onSuccess?: (message?: string, targetView?: 'landing' | 'dashboard') => void;
 }
 
 export const AuthModal: React.FC<Props> = ({ isOpen, onClose, defaultRole = 'CEO', onSuccess }) => {
@@ -37,46 +37,47 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onClose, defaultRole = 'CEO
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (tab === 'forgot') {
-      if (!otpSent) {
-        const response = await fetch('/api/auth/request-password-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, role: 'Mentor' })
-        });
-        const result = await response.json();
-        if (!response.ok || !result.success) throw new Error(result.message || 'Unable to send OTP');
-        setOtpSent(true);
-      } else {
-        const response = await fetch('/api/auth/reset-password', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, otp, newPassword, role: 'Mentor' })
-        });
-        const result = await response.json();
-        if (!response.ok || !result.success) throw new Error(result.message || 'Unable to change password');
-        if (onSuccess) onSuccess('Mentor password changed successfully.');
-        onClose();
-      }
-      return;
-    }
     try {
+      if (tab === 'forgot') {
+        if (!otpSent) {
+          const response = await fetch('/api/auth/request-password-otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, role: selectedRole })
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok || !result.success) throw new Error(result.message || 'Unable to send OTP');
+          setOtpSent(true);
+        } else {
+          const response = await fetch('/api/auth/reset-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, otp, newPassword, role: selectedRole })
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok || !result.success) throw new Error(result.message || 'Unable to change password');
+          if (onSuccess) onSuccess(`${selectedRole} password changed successfully.`, 'landing');
+          onClose();
+        }
+        return;
+      }
+
       if (tab === 'register') {
         const response = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email, password, role: selectedRole })
         });
-        const result = await response.json();
+        const result = await response.json().catch(() => ({}));
         if (!response.ok || !result.success) throw new Error(result.message || 'Registration failed');
         login({ ...result.data.user, token: result.data.token });
-        if (onSuccess) onSuccess('Registration successful! Your student account is ready.');
+        if (onSuccess) onSuccess('Registration successful! Your student account is ready.', 'dashboard');
         onClose();
         return;
       } else {
         await loginWithCredentials(email, password, selectedRole);
       }
-      if (onSuccess) onSuccess();
+      if (onSuccess) onSuccess(undefined, 'dashboard');
       onClose();
     } catch (error) {
       window.alert(error instanceof Error ? error.message : 'Authentication failed');
@@ -99,16 +100,9 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onClose, defaultRole = 'CEO
           <h3 className="text-xl font-extrabold text-slate-900">
             {tab === 'login' && 'Sign In to Enterprise Portal'}
             {tab === 'register' && 'Create Student Account'}
-            {tab === 'forgot' && 'Reset Mentor Password'}
+            {tab === 'forgot' && `Reset ${selectedRole} Password`}
           </h3>
           <p className="text-xs text-slate-500 mt-1">Websums Software Pvt. Ltd.</p>
-        </div>
-
-        <div className="relative my-4">
-          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200"></div></div>
-          <div className="relative flex justify-center text-[10px] text-slate-400 uppercase font-semibold">
-            <span className="bg-white px-2">or credentials login</span>
-          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3 text-xs">
@@ -128,8 +122,8 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onClose, defaultRole = 'CEO
 
           <div>
             <label className="block font-semibold text-slate-700 mb-1">Select Role Type</label>
-            <div className={`grid gap-2 ${tab !== 'login' ? 'grid-cols-1' : 'grid-cols-3'}`}>
-              {(tab === 'register' ? ['Student'] as Role[] : tab === 'forgot' ? ['Mentor'] as Role[] : ['CEO', 'Mentor', 'Student'] as Role[]).map((r) => (
+            <div className={`grid gap-2 ${tab === 'register' ? 'grid-cols-1' : 'grid-cols-3'}`}>
+              {(tab === 'register' ? ['Student'] as Role[] : ['CEO', 'Mentor', 'Student'] as Role[]).map((r) => (
                 <button
                   type="button"
                   key={r}
@@ -200,12 +194,17 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onClose, defaultRole = 'CEO
                   className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:border-orange-500 focus:bg-white"
                 />
               </div>
+              {selectedRole === 'Mentor' && (
+                <p className="mt-1.5 text-[11px] text-amber-800 font-semibold bg-amber-50 px-2.5 py-1.5 rounded-lg border border-amber-200/80">
+                  💡 <strong>Mentor Note:</strong> Your initial login password is your registered mobile number.
+                </p>
+              )}
             </div>
           )}
 
           {tab === 'forgot' && otpSent && (
             <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-[11px] font-semibold">
-              ✅ Simulated OTP code <strong>(884-912)</strong> sent to {email}. Enter OTP to reset password.
+              ✅ 6-digit OTP code sent to <strong>{email}</strong>. Please check your inbox (or spam folder) and enter it above to reset your password.
             </div>
           )}
 
@@ -214,7 +213,7 @@ export const AuthModal: React.FC<Props> = ({ isOpen, onClose, defaultRole = 'CEO
               type="submit"
               className="w-full py-3 text-xs font-bold text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 rounded-xl shadow-lg shadow-orange-500/25 transition-all flex items-center justify-center space-x-1.5"
             >
-              <span>{tab === 'login' ? 'Sign In Now' : tab === 'register' ? 'Register Account' : otpSent ? 'Change Password' : 'Send OTP'}</span>
+              <span>{tab === 'login' ? 'Sign In Now' : tab === 'register' ? 'Register Student Account' : otpSent ? 'Change Password' : 'Send OTP'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

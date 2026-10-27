@@ -27,21 +27,21 @@ const MainContent: React.FC = () => {
   const [showAppModal, setShowAppModal] = useState(false);
   const [authToast, setAuthToast] = useState<string | null>(null);
 
-  // Auto-switch view to dashboard when user logs in, or landing when user logs out
+  // Auto-switch view to landing when user is not logged in on dashboard
   React.useEffect(() => {
-    if (user && activeView === 'landing') {
-      // Keep on landing unless they request dashboard, but if user logs in, take to dashboard
+    if (!user && activeView === 'dashboard') {
+      setActiveView('landing');
     }
-  }, [user]);
+  }, [user, activeView]);
 
   const handleOpenAuthForRole = (targetRole: 'CEO' | 'Mentor' | 'Student') => {
     setAuthDefaultRole(targetRole);
     setShowAuthModal(true);
   };
 
-  const handleAuthSuccess = (message?: string) => {
+  const handleAuthSuccess = (message?: string, targetView?: 'landing' | 'dashboard') => {
     setShowAuthModal(false);
-    setActiveView('dashboard');
+    setActiveView(targetView || (user ? 'dashboard' : 'landing'));
     if (message) {
       setAuthToast(message);
       window.setTimeout(() => setAuthToast(null), 4000);
@@ -160,7 +160,10 @@ const MainContent: React.FC = () => {
       {/* Modals */}
       <AuthModal
         isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
+        onClose={() => {
+          setShowAuthModal(false);
+          if (!user) setActiveView('landing');
+        }}
         defaultRole={authDefaultRole}
         onSuccess={handleAuthSuccess}
       />

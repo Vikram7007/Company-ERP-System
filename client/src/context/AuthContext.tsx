@@ -13,44 +13,15 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const DEMO_USERS: Record<Role, User> = {
-  CEO: {
-    id: 'usr-ceo-1',
-    name: 'Shriram Thorat (CEO)',
-    email: 'ceo@websums.com',
-    role: 'CEO',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-    phone: '+91 98000 00001'
-  },
-  Mentor: {
-    id: 'usr-mentor-1',
-    name: 'Vikram Lale',
-    email: 'mentor@websums.com',
-    role: 'Mentor',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
-    phone: '+91 98000 22233',
-    domain: 'MERN Stack Development'
-  },
-  Student: {
-    id: 'usr-student-1',
-    name: 'Aarav Sharma',
-    email: 'student@websums.com',
-    role: 'Student',
-    avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=200&q=80',
-    phone: '+91 98765 43210',
-    domain: 'MERN Stack Development',
-    batch: 'Batch W-2026-A'
-  }
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('websums_user');
     if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed.role === 'CEO') parsed.name = 'Shriram Thorat (CEO)';
-      if (parsed.role === 'Mentor' && (parsed.name === 'Dr. Rajesh Verma' || !parsed.name)) parsed.name = 'Vikram Lale';
-      return parsed;
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return null;
+      }
     }
     return null;
   });
@@ -81,7 +52,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const switchRole = (newRole: Role) => {
-    setUser(DEMO_USERS[newRole]);
+    if (user) {
+      setUser({ ...user, role: newRole });
+    }
   };
 
   const logout = () => {

@@ -1,14 +1,18 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Mentor, Student, StudentApplication, FeeTransaction, Assignment, Submission, DailyAttendanceReport, AttendanceRecord, LiveClass, RecordedLecture, Quiz } from '../types';
-import { INITIAL_MENTORS, INITIAL_STUDENTS, INITIAL_APPLICATIONS, INITIAL_ASSIGNMENTS, INITIAL_LIVE_CLASSES, INITIAL_LECTURES, INITIAL_QUIZZES } from '../data/mockData';
-import { apiGet, apiPost, apiPatch } from '../utils/api';
+import { INITIAL_MENTORS, INITIAL_STUDENTS, INITIAL_APPLICATIONS, INITIAL_ASSIGNMENTS, INITIAL_LIVE_CLASSES, INITIAL_LECTURES, INITIAL_QUIZZES, INITIAL_ATTENDANCE_REPORTS } from '../data/mockData';
+import { apiGet, apiPost, apiPatch, apiDelete } from '../utils/api';
+import { calculateStudentAttendanceStats } from '../utils/attendanceCalculator';
 
 interface DataContextType {
   mentors: Mentor[];
   students: Student[];
   applications: StudentApplication[];
   addMentor: (mentorData: Omit<Mentor, 'id' | 'totalStudents' | 'rating' | 'joinedDate'>) => Promise<void>;
+  deleteMentor: (mentorId: string) => Promise<void>;
   addStudent: (studentData: Omit<Student, 'id' | 'feeDetails'> & { totalFee?: number; paidAmount?: number }) => void;
+  deleteStudent: (studentId: string) => void;
+  updateStudent: (studentId: string, updates: Partial<Pick<Student, 'name' | 'email' | 'phone' | 'domain' | 'batch' | 'college'>>) => void;
   updateStudentFee: (studentId: string, additionalPayment: number, paymentMode: any, notes?: string) => void;
   addApplication: (appData: Omit<StudentApplication, 'id' | 'appliedDate' | 'status' | 'resumeFileName'>) => void;
   updateApplicationStatus: (appId: string, newStatus: 'Accepted' | 'Rejected' | 'Pending') => void;
@@ -33,7 +37,22 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [mentors, setMentors] = useState<Mentor[]>(() => {
     const saved = localStorage.getItem('websums_mentors');
-    return saved ? JSON.parse(saved) : INITIAL_MENTORS;
+    if (saved) {
+      try {
+        const parsed: Mentor[] = JSON.parse(saved);
+        const legacyEmails = new Set([
+          'vaishanavi.bhandure@websums.com',
+          'vikram.lale@websums.com',
+          'aishwarya.kadam@websums.com',
+          'komal.sasane@websums.com',
+          'mentor@websums.com'
+        ]);
+        return parsed.filter(m => !legacyEmails.has(m.email?.toLowerCase()));
+      } catch {
+        return [];
+      }
+    }
+    return INITIAL_MENTORS;
   });
 
   const [students, setStudents] = useState<Student[]>(() => {
@@ -62,9 +81,28 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   useEffect(() => {
-    // Auto-sync initial mentors with updated names & assigned domains
-    setMentors(INITIAL_MENTORS);
-    localStorage.setItem('websums_mentors', JSON.stringify(INITIAL_MENTORS));
+    const saved = localStorage.getItem('websums_mentors');
+    if (saved) {
+      try {
+        const parsed: Mentor[] = JSON.parse(saved);
+        const legacyEmails = new Set([
+          'vaishanavi.bhandure@websums.com',
+          'vikram.lale@websums.com',
+          'aishwarya.kadam@websums.com',
+          'komal.sasane@websums.com',
+          'mentor@websums.com'
+        ]);
+        const cleaned = parsed.filter(m => !legacyEmails.has(m.email?.toLowerCase()));
+        setMentors(cleaned);
+        localStorage.setItem('websums_mentors', JSON.stringify(cleaned));
+      } catch {
+        setMentors([]);
+        localStorage.setItem('websums_mentors', JSON.stringify([]));
+      }
+    } else {
+      setMentors([]);
+      localStorage.setItem('websums_mentors', JSON.stringify([]));
+    }
   }, []);
 
   useEffect(() => {
@@ -135,7 +173,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [attendanceReports, setAttendanceReports] = useState<DailyAttendanceReport[]>(() => {
     const saved = localStorage.getItem('websums_attendance_reports');
-    return saved ? JSON.parse(saved) : [];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.error('Failed to parse saved attendance reports', e);
+      }
+    }
+    return INITIAL_ATTENDANCE_REPORTS;
   });
 
   useEffect(() => {
@@ -173,6 +219,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setMentors((prev) => [createdMentor, ...prev]);
   };
 
+  const deleteMentor = async (mentorId: string) => {
+    try {
+      await apiDelete(`/api/mentors/${mentorId}`);
+    } catch (err) {
+      console.error('Failed to delete mentor from API:', err);
+    }
+    setMentors((prev) => prev.filter((m) => m.id !== mentorId));
+  };
+
   // CEO / Admin capability: Add New Student
   const addStudent = (data: Omit<Student, 'id' | 'feeDetails'> & { totalFee?: number; paidAmount?: number }) => {
     const totalFee = data.totalFee || 15000;
@@ -201,6 +256,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     setStudents((prev) => [newStudent, ...prev]);
     apiPost<Student>('/api/students', newStudent).catch(console.error);
+  };
+
+  // CEO capability: Delete a student
+  const deleteStudent = (studentId: string) => {
+    setStudents((prev) => prev.filter((s) => s.id !== studentId));
+    apiDelete(`/api/students/${studentId}`).catch(console.error);
+  };
+
+  // CEO capability: Edit existing student basic info
+  const updateStudent = (studentId: string, updates: Partial<Pick<Student, 'name' | 'email' | 'phone' | 'domain' | 'batch' | 'college'>>) => {
+    setStudents((prev) =>
+      prev.map((std) => (std.id === studentId ? { ...std, ...updates } : std))
+    );
+    apiPatch<Student>(`/api/students/${studentId}`, updates).catch(console.error);
   };
 
   // Manual Fee Payment Tracker for Student Company Records
@@ -271,7 +340,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (newStatus === 'Accepted') {
       const app = applications.find((a) => a.id === appId);
       if (app) {
-        const alreadyEnrolled = students.some((s) => s.email.toLowerCase() === app.email.toLowerCase());
+        const alreadyEnrolled = students.some((s) => (s.email || '').toLowerCase() === (app.email || '').toLowerCase());
         if (!alreadyEnrolled) {
           addStudent({
             userId: `usr-${Date.now()}`,
@@ -334,19 +403,35 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     
     // Check if report already exists for today & batch to update instead of add duplicate
+    let updatedReports: DailyAttendanceReport[] = [];
     setAttendanceReports(prev => {
       const existsIdx = prev.findIndex(r => r.date === reportData.date && r.batch === reportData.batch);
       if (existsIdx >= 0) {
         const copy = [...prev];
         copy[existsIdx] = newReport;
+        updatedReports = copy;
         return copy;
       }
-      return [newReport, ...prev];
+      updatedReports = [newReport, ...prev];
+      return updatedReports;
     });
-    apiPost<DailyAttendanceReport>('/api/attendance/reports', newReport).catch(console.error);
 
-    // Also update student attendance percentage logically 
-    // (mock implementation: just add to their percentage visually in a real app)
+    // Real-time automatic recalculation of each student's attendance percentage from actual records
+    const effectiveReports = updatedReports.length > 0 ? updatedReports : [newReport, ...attendanceReports];
+    setStudents(prevStudents => {
+      return prevStudents.map(student => {
+        const stats = calculateStudentAttendanceStats(student.id, effectiveReports);
+        if (stats.totalSessions > 0) {
+          return {
+            ...student,
+            attendancePercentage: stats.attendancePercentage
+          };
+        }
+        return student;
+      });
+    });
+
+    apiPost<DailyAttendanceReport>('/api/attendance/reports', newReport).catch(console.error);
   };
 
   const addLiveClass = (classData: Omit<LiveClass, 'id' | 'status'>) => {
@@ -436,9 +521,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('websums_students');
     localStorage.removeItem('websums_mentors');
     localStorage.removeItem('websums_applications');
+    localStorage.removeItem('websums_attendance_reports');
     setStudents(INITIAL_STUDENTS);
     setMentors(INITIAL_MENTORS);
     setApplications(INITIAL_APPLICATIONS);
+    setAttendanceReports(INITIAL_ATTENDANCE_REPORTS);
   };
 
   return (
@@ -448,7 +535,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         students,
         applications,
         addMentor,
+        deleteMentor,
         addStudent,
+        deleteStudent,
+        updateStudent,
         updateStudentFee,
         addApplication,
         updateApplicationStatus,

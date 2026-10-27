@@ -1,4 +1,4 @@
-import { Domain, Student, Mentor, LiveClass, RecordedLecture, Assignment, Certificate, Announcement, JobPosting, Quiz, StudentApplication } from '../types';
+import { Domain, Student, Mentor, LiveClass, RecordedLecture, Assignment, Certificate, Announcement, JobPosting, Quiz, StudentApplication, DailyAttendanceReport } from '../types';
 
 export const INITIAL_DOMAINS: Domain[] = [
   {
@@ -1004,56 +1004,7 @@ export const INITIAL_APPLICATIONS: StudentApplication[] = [
   }
 ];
 
-export const INITIAL_MENTORS: Mentor[] = [
-  {
-    id: 'mnt-1',
-    name: 'Vaishanavi Bhandure',
-    email: 'vaishanavi.bhandure@websums.com',
-    phone: '+91 98000 11122',
-    assignedDomains: ['Artificial Intelligence & Deep Learning', 'Machine Learning'],
-    activeBatches: ['Batch W-2026-B'],
-    totalStudents: 120,
-    rating: 4.9,
-    joinedDate: '2025-01-15',
-    status: 'Active'
-  },
-  {
-    id: 'mnt-2',
-    name: 'Vikram Lale',
-    email: 'vikram.lale@websums.com',
-    phone: '+91 98000 22233',
-    assignedDomains: ['MERN Stack Development', 'Full Stack Java Development'],
-    activeBatches: ['Batch W-2026-A', 'Batch W-2026-D'],
-    totalStudents: 145,
-    rating: 4.95,
-    joinedDate: '2025-02-01',
-    status: 'Active'
-  },
-  {
-    id: 'mnt-3',
-    name: 'Aishwarya Kadam',
-    email: 'aishwarya.kadam@websums.com',
-    phone: '+91 98000 33344',
-    assignedDomains: ['Data Science & Data Analytics'],
-    activeBatches: ['Batch RK-Gurukul-DS'],
-    totalStudents: 140,
-    rating: 4.85,
-    joinedDate: '2025-03-01',
-    status: 'Active'
-  },
-  {
-    id: 'mnt-4',
-    name: 'Komal Sasane',
-    email: 'komal.sasane@websums.com',
-    phone: '+91 98000 44455',
-    assignedDomains: ['Web Development', 'UI/UX Design & Product Strategy'],
-    activeBatches: ['Batch W-2026-C'],
-    totalStudents: 110,
-    rating: 4.9,
-    joinedDate: '2025-03-15',
-    status: 'Active'
-  }
-];
+export const INITIAL_MENTORS: Mentor[] = [];
 
 export const INITIAL_LIVE_CLASSES: LiveClass[] = [
   {
@@ -1491,4 +1442,197 @@ export const ANALYTICS_GRAPH_DATA = [
   { month: 'May', enrollment: 950, revenue: 38.4, attendance: 93 },
   { month: 'Jun', enrollment: 1120, revenue: 45.0, attendance: 96 },
   { month: 'Jul', enrollment: 1248, revenue: 52.8, attendance: 94 }
+];
+
+export const INITIAL_ATTENDANCE_REPORTS: DailyAttendanceReport[] = [
+  {
+    id: 'rep-2026-10-23-A',
+    date: '2026-10-23',
+    batch: 'Batch W-2026-A',
+    mentorName: 'Vikram Lale',
+    totalStudents: 6,
+    presentCount: 5,
+    absentCount: 0,
+    lateCount: 1,
+    sessionTopic: 'Enterprise MERN Architecture & Redux Toolkit state sync',
+    records: [
+      { id: 'rec-1023-1', studentId: 'std-101', studentName: 'Aarav Sharma', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-23', status: 'Present' },
+      { id: 'rec-1023-2', studentId: 'std-102', studentName: 'abhijit narse', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-23', status: 'Present' },
+      { id: 'rec-1023-3', studentId: 'std-103', studentName: 'Rahul Ramesh Jadhav', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-23', status: 'Present' },
+      { id: 'rec-1023-4', studentId: 'std-104', studentName: 'Aditya Talekar', batch: 'Batch W-2026-A', domain: 'Artificial Intelligence and Machine Learning', date: '2026-10-23', status: 'Present' },
+      { id: 'rec-1023-5', studentId: 'std-105', studentName: 'Rohan Kulkarni', batch: 'Batch W-2026-A', domain: 'DevOps & Cloud Computing (AWS/Docker)', date: '2026-10-23', status: 'Late' },
+      { id: 'rec-1023-6', studentId: 'std-106', studentName: 'Vikram Singh', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-23', status: 'Present' },
+    ]
+  },
+  {
+    id: 'rep-2026-10-21-A',
+    date: '2026-10-21',
+    batch: 'Batch W-2026-A',
+    mentorName: 'Vikram Lale',
+    totalStudents: 6,
+    presentCount: 6,
+    absentCount: 0,
+    lateCount: 0,
+    sessionTopic: 'Full-Stack Testing, Unit Tests & CI/CD Pipelines',
+    records: [
+      { id: 'rec-1021-1', studentId: 'std-101', studentName: 'Aarav Sharma', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-21', status: 'Present' },
+      { id: 'rec-1021-2', studentId: 'std-102', studentName: 'abhijit narse', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-21', status: 'Present' },
+      { id: 'rec-1021-3', studentId: 'std-103', studentName: 'Rahul Ramesh Jadhav', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-21', status: 'Present' },
+      { id: 'rec-1021-4', studentId: 'std-104', studentName: 'Aditya Talekar', batch: 'Batch W-2026-A', domain: 'Artificial Intelligence and Machine Learning', date: '2026-10-21', status: 'Present' },
+      { id: 'rec-1021-5', studentId: 'std-105', studentName: 'Rohan Kulkarni', batch: 'Batch W-2026-A', domain: 'DevOps & Cloud Computing (AWS/Docker)', date: '2026-10-21', status: 'Present' },
+      { id: 'rec-1021-6', studentId: 'std-106', studentName: 'Vikram Singh', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-21', status: 'Present' },
+    ]
+  },
+  {
+    id: 'rep-2026-10-19-A',
+    date: '2026-10-19',
+    batch: 'Batch W-2026-A',
+    mentorName: 'Vikram Lale',
+    totalStudents: 6,
+    presentCount: 5,
+    absentCount: 1,
+    lateCount: 0,
+    sessionTopic: 'Payment Gateway Integration, Stripe & Webhooks',
+    records: [
+      { id: 'rec-1019-1', studentId: 'std-101', studentName: 'Aarav Sharma', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-19', status: 'Present' },
+      { id: 'rec-1019-2', studentId: 'std-102', studentName: 'abhijit narse', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-19', status: 'Present' },
+      { id: 'rec-1019-3', studentId: 'std-103', studentName: 'Rahul Ramesh Jadhav', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-19', status: 'Absent' },
+      { id: 'rec-1019-4', studentId: 'std-104', studentName: 'Aditya Talekar', batch: 'Batch W-2026-A', domain: 'Artificial Intelligence and Machine Learning', date: '2026-10-19', status: 'Present' },
+      { id: 'rec-1019-5', studentId: 'std-105', studentName: 'Rohan Kulkarni', batch: 'Batch W-2026-A', domain: 'DevOps & Cloud Computing (AWS/Docker)', date: '2026-10-19', status: 'Present' },
+      { id: 'rec-1019-6', studentId: 'std-106', studentName: 'Vikram Singh', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-19', status: 'Present' },
+    ]
+  },
+  {
+    id: 'rep-2026-10-16-A',
+    date: '2026-10-16',
+    batch: 'Batch W-2026-A',
+    mentorName: 'Vikram Lale',
+    totalStudents: 6,
+    presentCount: 6,
+    absentCount: 0,
+    lateCount: 0,
+    sessionTopic: 'JWT Security, Refresh Tokens & RBAC Middleware',
+    records: [
+      { id: 'rec-1016-1', studentId: 'std-101', studentName: 'Aarav Sharma', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-16', status: 'Present' },
+      { id: 'rec-1016-2', studentId: 'std-102', studentName: 'abhijit narse', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-16', status: 'Present' },
+      { id: 'rec-1016-3', studentId: 'std-103', studentName: 'Rahul Ramesh Jadhav', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-16', status: 'Present' },
+      { id: 'rec-1016-4', studentId: 'std-104', studentName: 'Aditya Talekar', batch: 'Batch W-2026-A', domain: 'Artificial Intelligence and Machine Learning', date: '2026-10-16', status: 'Present' },
+      { id: 'rec-1016-5', studentId: 'std-105', studentName: 'Rohan Kulkarni', batch: 'Batch W-2026-A', domain: 'DevOps & Cloud Computing (AWS/Docker)', date: '2026-10-16', status: 'Present' },
+      { id: 'rec-1016-6', studentId: 'std-106', studentName: 'Vikram Singh', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-16', status: 'Present' },
+    ]
+  },
+  {
+    id: 'rep-2026-10-14-A',
+    date: '2026-10-14',
+    batch: 'Batch W-2026-A',
+    mentorName: 'Vikram Lale',
+    totalStudents: 6,
+    presentCount: 5,
+    absentCount: 1,
+    lateCount: 0,
+    sessionTopic: 'MongoDB Schema Design, Indexing & Aggregation Pipelines',
+    records: [
+      { id: 'rec-1014-1', studentId: 'std-101', studentName: 'Aarav Sharma', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-14', status: 'Present' },
+      { id: 'rec-1014-2', studentId: 'std-102', studentName: 'abhijit narse', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-14', status: 'Present' },
+      { id: 'rec-1014-3', studentId: 'std-103', studentName: 'Rahul Ramesh Jadhav', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-14', status: 'Present' },
+      { id: 'rec-1014-4', studentId: 'std-104', studentName: 'Aditya Talekar', batch: 'Batch W-2026-A', domain: 'Artificial Intelligence and Machine Learning', date: '2026-10-14', status: 'Absent' },
+      { id: 'rec-1014-5', studentId: 'std-105', studentName: 'Rohan Kulkarni', batch: 'Batch W-2026-A', domain: 'DevOps & Cloud Computing (AWS/Docker)', date: '2026-10-14', status: 'Present' },
+      { id: 'rec-1014-6', studentId: 'std-106', studentName: 'Vikram Singh', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-14', status: 'Present' },
+    ]
+  },
+  {
+    id: 'rep-2026-10-12-A',
+    date: '2026-10-12',
+    batch: 'Batch W-2026-A',
+    mentorName: 'Vikram Lale',
+    totalStudents: 6,
+    presentCount: 6,
+    absentCount: 0,
+    lateCount: 0,
+    sessionTopic: 'Node.js Event Loop, Streams & Express Controller Patterns',
+    records: [
+      { id: 'rec-1012-1', studentId: 'std-101', studentName: 'Aarav Sharma', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-12', status: 'Present' },
+      { id: 'rec-1012-2', studentId: 'std-102', studentName: 'abhijit narse', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-12', status: 'Present' },
+      { id: 'rec-1012-3', studentId: 'std-103', studentName: 'Rahul Ramesh Jadhav', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-12', status: 'Present' },
+      { id: 'rec-1012-4', studentId: 'std-104', studentName: 'Aditya Talekar', batch: 'Batch W-2026-A', domain: 'Artificial Intelligence and Machine Learning', date: '2026-10-12', status: 'Present' },
+      { id: 'rec-1012-5', studentId: 'std-105', studentName: 'Rohan Kulkarni', batch: 'Batch W-2026-A', domain: 'DevOps & Cloud Computing (AWS/Docker)', date: '2026-10-12', status: 'Present' },
+      { id: 'rec-1012-6', studentId: 'std-106', studentName: 'Vikram Singh', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-12', status: 'Present' },
+    ]
+  },
+  {
+    id: 'rep-2026-10-09-A',
+    date: '2026-10-09',
+    batch: 'Batch W-2026-A',
+    mentorName: 'Vikram Lale',
+    totalStudents: 6,
+    presentCount: 6,
+    absentCount: 0,
+    lateCount: 0,
+    sessionTopic: 'Redux Toolkit Store Configuration & Thunk Middleware',
+    records: [
+      { id: 'rec-1009-1', studentId: 'std-101', studentName: 'Aarav Sharma', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-09', status: 'Present' },
+      { id: 'rec-1009-2', studentId: 'std-102', studentName: 'abhijit narse', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-09', status: 'Present' },
+      { id: 'rec-1009-3', studentId: 'std-103', studentName: 'Rahul Ramesh Jadhav', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-09', status: 'Present' },
+      { id: 'rec-1009-4', studentId: 'std-104', studentName: 'Aditya Talekar', batch: 'Batch W-2026-A', domain: 'Artificial Intelligence and Machine Learning', date: '2026-10-09', status: 'Present' },
+      { id: 'rec-1009-5', studentId: 'std-105', studentName: 'Rohan Kulkarni', batch: 'Batch W-2026-A', domain: 'DevOps & Cloud Computing (AWS/Docker)', date: '2026-10-09', status: 'Present' },
+      { id: 'rec-1009-6', studentId: 'std-106', studentName: 'Vikram Singh', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-09', status: 'Present' },
+    ]
+  },
+  {
+    id: 'rep-2026-10-07-A',
+    date: '2026-10-07',
+    batch: 'Batch W-2026-A',
+    mentorName: 'Vikram Lale',
+    totalStudents: 6,
+    presentCount: 6,
+    absentCount: 0,
+    lateCount: 0,
+    sessionTopic: 'React 19 Custom Hooks & Performance Optimization',
+    records: [
+      { id: 'rec-1007-1', studentId: 'std-101', studentName: 'Aarav Sharma', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-07', status: 'Present' },
+      { id: 'rec-1007-2', studentId: 'std-102', studentName: 'abhijit narse', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-07', status: 'Present' },
+      { id: 'rec-1007-3', studentId: 'std-103', studentName: 'Rahul Ramesh Jadhav', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-07', status: 'Present' },
+      { id: 'rec-1007-4', studentId: 'std-104', studentName: 'Aditya Talekar', batch: 'Batch W-2026-A', domain: 'Artificial Intelligence and Machine Learning', date: '2026-10-07', status: 'Present' },
+      { id: 'rec-1007-5', studentId: 'std-105', studentName: 'Rohan Kulkarni', batch: 'Batch W-2026-A', domain: 'DevOps & Cloud Computing (AWS/Docker)', date: '2026-10-07', status: 'Present' },
+      { id: 'rec-1007-6', studentId: 'std-106', studentName: 'Vikram Singh', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-07', status: 'Present' },
+    ]
+  },
+  {
+    id: 'rep-2026-10-05-A',
+    date: '2026-10-05',
+    batch: 'Batch W-2026-A',
+    mentorName: 'Vikram Lale',
+    totalStudents: 6,
+    presentCount: 6,
+    absentCount: 0,
+    lateCount: 0,
+    sessionTopic: 'TypeScript Generics, Utility Types & Clean Code Practices',
+    records: [
+      { id: 'rec-1005-1', studentId: 'std-101', studentName: 'Aarav Sharma', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-05', status: 'Present' },
+      { id: 'rec-1005-2', studentId: 'std-102', studentName: 'abhijit narse', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-05', status: 'Present' },
+      { id: 'rec-1005-3', studentId: 'std-103', studentName: 'Rahul Ramesh Jadhav', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-05', status: 'Present' },
+      { id: 'rec-1005-4', studentId: 'std-104', studentName: 'Aditya Talekar', batch: 'Batch W-2026-A', domain: 'Artificial Intelligence and Machine Learning', date: '2026-10-05', status: 'Present' },
+      { id: 'rec-1005-5', studentId: 'std-105', studentName: 'Rohan Kulkarni', batch: 'Batch W-2026-A', domain: 'DevOps & Cloud Computing (AWS/Docker)', date: '2026-10-05', status: 'Present' },
+      { id: 'rec-1005-6', studentId: 'std-106', studentName: 'Vikram Singh', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-05', status: 'Present' },
+    ]
+  },
+  {
+    id: 'rep-2026-10-02-A',
+    date: '2026-10-02',
+    batch: 'Batch W-2026-A',
+    mentorName: 'Vikram Lale',
+    totalStudents: 6,
+    presentCount: 6,
+    absentCount: 0,
+    lateCount: 0,
+    sessionTopic: 'Gandhi Jayanti Special: Enterprise Internship Orientation & Project Scoping',
+    records: [
+      { id: 'rec-1002-1', studentId: 'std-101', studentName: 'Aarav Sharma', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-02', status: 'Present' },
+      { id: 'rec-1002-2', studentId: 'std-102', studentName: 'abhijit narse', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-02', status: 'Present' },
+      { id: 'rec-1002-3', studentId: 'std-103', studentName: 'Rahul Ramesh Jadhav', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-02', status: 'Present' },
+      { id: 'rec-1002-4', studentId: 'std-104', studentName: 'Aditya Talekar', batch: 'Batch W-2026-A', domain: 'Artificial Intelligence and Machine Learning', date: '2026-10-02', status: 'Present' },
+      { id: 'rec-1002-5', studentId: 'std-105', studentName: 'Rohan Kulkarni', batch: 'Batch W-2026-A', domain: 'DevOps & Cloud Computing (AWS/Docker)', date: '2026-10-02', status: 'Present' },
+      { id: 'rec-1002-6', studentId: 'std-106', studentName: 'Vikram Singh', batch: 'Batch W-2026-A', domain: 'MERN Stack Development', date: '2026-10-02', status: 'Present' },
+    ]
+  }
 ];

@@ -128,8 +128,8 @@ export const StudentDashboard: React.FC = () => {
   // Domain-Aware Content Filtering
   const isDomainMatch = (itemDomain?: string) => {
     if (!itemDomain) return true;
-    const itemNorm = itemDomain.toLowerCase();
-    const stdNorm = studentDomain.toLowerCase();
+    const itemNorm = (itemDomain || '').toLowerCase();
+    const stdNorm = (studentDomain || '').toLowerCase();
     return itemNorm === stdNorm || itemNorm.includes(stdNorm) || stdNorm.includes(itemNorm);
   };
 
@@ -1077,9 +1077,11 @@ export const StudentDashboard: React.FC = () => {
 
       {/* 3. LECTURES & NOTES TAB */}
       {activeTab === 'lectures' && (() => {
+        const q = (videoSearch || '').trim().toLowerCase();
         const filteredLectures = domainLectures.filter(l => 
-          l.title.toLowerCase().includes(videoSearch.toLowerCase()) || 
-          (l.domain && l.domain.toLowerCase().includes(videoSearch.toLowerCase()))
+          !q ||
+          (l.title || '').toLowerCase().includes(q) || 
+          (l.domain || '').toLowerCase().includes(q)
         );
         const videosPerPage = videoViewMode === 'grid' ? 6 : 4;
         const totalVideoPages = Math.ceil(filteredLectures.length / videosPerPage) || 1;
