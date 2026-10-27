@@ -24,9 +24,12 @@ interface DataContextType {
   saveAttendanceReport: (reportData: Omit<DailyAttendanceReport, 'id'>) => void;
   liveClasses: LiveClass[];
   recordedLectures: RecordedLecture[];
-  addLiveClass: (classData: Omit<LiveClass, 'id' | 'status'>) => void;
-  endLiveClass: (classId: string, videoUrl: string) => void;
+  addLiveClass: (classData: Omit<LiveClass, 'id'>) => void;
+  updateLiveClass: (classId: string, updates: Partial<LiveClass>) => void;
+  deleteLiveClass: (classId: string) => void;
+  endLiveClass: (classId: string, videoUrl: string, notesUrl?: string, notesFileName?: string) => void;
   addRecordedLecture: (lectureData: Omit<RecordedLecture, 'id' | 'viewsCount'>) => void;
+  deleteRecordedLecture: (lectureId: string) => void;
   quizzes: Quiz[];
   updateQuizResult: (quizId: string, score: number, questionsAnswered: number) => void;
   resetData: () => void;
@@ -434,14 +437,75 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     apiPost<DailyAttendanceReport>('/api/attendance/reports', newReport).catch(console.error);
   };
 
-  const addLiveClass = (classData: Omit<LiveClass, 'id' | 'status'>) => {
+  const addLiveClass = (classData: Omit<LiveClass, 'id'>) => {
     const newClass: LiveClass = {
       ...classData,
       id: `lc-${Date.now()}`,
-      status: 'Upcoming'
+      status: classData.status || 'Upcoming'
     };
     setLiveClasses(prev => [newClass, ...prev]);
+
+    // If recording URL was provided directly, also add to recorded lectures
+    if (newClass.recordingUrl && newClass.recordingUrl.trim().length > 0) {
+      const directRec: RecordedLecture = {
+        id: `rec-${Date.now()}`,
+        liveClassId: newClass.id,
+        title: newClass.title,
+        description: newClass.description,
+        domain: newClass.domain,
+        batch: newClass.batch,
+        mentorName: newClass.mentorName,
+        date: newClass.date,
+        week: parseInt(newClass.batch.split('-').pop() || '1') || 1,
+        videoUrl: newClass.recordingUrl,
+        thumbnailUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80',
+        duration: `${newClass.durationMinutes || 60}m`,
+        viewsCount: 0,
+        pdfNotesUrl: newClass.notesUrl || '#',
+        pdfNotesName: newClass.notesFileName || ''
+      };
+      setRecordedLectures(prev => [directRec, ...prev]);
+      apiPost<RecordedLecture>('/api/lectures', directRec).catch(console.error);
+    }
+
     apiPost<LiveClass>('/api/live-classes', newClass).catch(console.error);
+  };
+
+  const updateLiveClass = (classId: string, updates: Partial<LiveClass>) => {
+    setLiveClasses(prev =>
+      prev.map(lc => {
+        if (lc.id === classId) {
+          return { ...lc, ...updates };
+        }
+        return lc;
+      })
+    );
+
+    if (updates.recordingUrl) {
+      setRecordedLectures(prev => {
+        const exists = prev.some(r => r.liveClassId === classId);
+        if (exists) {
+          return prev.map(r => r.liveClassId === classId ? {
+            ...r,
+            videoUrl: updates.recordingUrl!,
+            title: updates.title || r.title,
+            domain: updates.domain || r.domain,
+            batch: updates.batch || r.batch,
+            pdfNotesUrl: updates.notesUrl || r.pdfNotesUrl,
+            pdfNotesName: updates.notesFileName || r.pdfNotesName
+          } : r);
+        }
+        return prev;
+      });
+    }
+
+    apiPatch(`/api/live-classes/${classId}`, updates).catch(console.error);
+  };
+
+  const deleteLiveClass = (classId: string) => {
+    setLiveClasses(prev => prev.filter(lc => lc.id !== classId));
+    setRecordedLectures(prev => prev.filter(r => r.liveClassId !== classId));
+    apiDelete(`/api/live-classes/${classId}`).catch(console.error);
   };
 
   const addRecordedLecture = (lectureData: Omit<RecordedLecture, 'id' | 'viewsCount'>) => {
@@ -454,23 +518,70 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     apiPost<RecordedLecture>('/api/lectures', newLecture).catch(console.error);
   };
 
-  const endLiveClass = (classId: string, videoUrl: string) => {
-    const liveClass = liveClasses.find(lc => lc.id === classId);
-    if (liveClass) {
-      // Remove from live classes
-      setLiveClasses(prev => prev.filter(lc => lc.id !== classId));
-      
-      // Add to recorded lectures
-      addRecordedLecture({
-        title: liveClass.title,
-        domain: liveClass.domain,
-        week: parseInt(liveClass.batch.split('-').pop() || '1') || 1, // Fallback week
-        videoUrl: videoUrl || 'https://www.w3schools.com/html/mov_bbb.mp4',
-        thumbnailUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80',
-        duration: `${liveClass.durationMinutes}m`,
-        pdfNotesUrl: '#'
+  const deleteRecordedLecture = (lectureId: string) => {
+    setRecordedLectures(prev => prev.filter(r => r.id !== lectureId));
+    apiDelete(`/api/lectures/${lectureId}`).catch(console.error);
+  };
+
+  const endLiveClass = (classId: string, videoUrl: string, notesUrl?: string, notesFileName?: string) => {
+    const targetClass = liveClasses.find(lc => lc.id === classId);
+
+    setLiveClasses(prev =>
+      prev.map(lc => {
+        if (lc.id === classId) {
+          return {
+            ...lc,
+            status: 'Completed',
+            recordingUrl: videoUrl,
+            notesUrl: notesUrl || lc.notesUrl,
+            notesFileName: notesFileName || lc.notesFileName,
+            completedAt: new Date().toISOString()
+          };
+        }
+        return lc;
+      })
+    );
+
+    if (targetClass) {
+      const cls = targetClass;
+      setRecordedLectures(prev => {
+        const existing = prev.find(r => r.liveClassId === classId);
+        if (existing) {
+          return prev.map(r => r.liveClassId === classId ? {
+            ...r,
+            videoUrl: videoUrl || r.videoUrl,
+            pdfNotesUrl: notesUrl || r.pdfNotesUrl,
+            pdfNotesName: notesFileName || r.pdfNotesName
+          } : r);
+        }
+
+        const newRec: RecordedLecture = {
+          id: `rec-${Date.now()}`,
+          liveClassId: classId,
+          title: cls.title,
+          description: cls.description,
+          domain: cls.domain,
+          batch: cls.batch,
+          mentorName: cls.mentorName,
+          date: cls.date || new Date().toISOString().split('T')[0],
+          week: parseInt(cls.batch.split('-').pop() || '1') || 1,
+          videoUrl: videoUrl || 'https://www.w3schools.com/html/mov_bbb.mp4',
+          thumbnailUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80',
+          duration: `${cls.durationMinutes || 60}m`,
+          viewsCount: 0,
+          pdfNotesUrl: notesUrl || cls.notesUrl || '#',
+          pdfNotesName: notesFileName || cls.notesFileName || ''
+        };
+        apiPost<RecordedLecture>('/api/lectures', newRec).catch(console.error);
+        return [newRec, ...prev];
       });
     }
+
+    apiPatch(`/api/live-classes/${classId}/end`, {
+      recordingUrl: videoUrl,
+      notesUrl,
+      notesFileName
+    }).catch(console.error);
   };
 
   const [quizzes, setQuizzes] = useState<Quiz[]>(() => {
@@ -551,8 +662,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         liveClasses,
         recordedLectures,
         addLiveClass,
+        updateLiveClass,
+        deleteLiveClass,
         endLiveClass,
         addRecordedLecture,
+        deleteRecordedLecture,
         quizzes,
         updateQuizResult,
         resetData

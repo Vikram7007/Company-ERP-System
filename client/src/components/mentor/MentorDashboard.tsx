@@ -37,10 +37,15 @@ import {
   RefreshCw,
   Database,
   Circle,
-  BarChart2
+  BarChart2,
+  Edit3,
+  Trash2,
+  Radio,
+  ExternalLink,
+  Layers
 } from 'lucide-react';
-import { INITIAL_LIVE_CLASSES, INITIAL_ASSIGNMENTS, INITIAL_LECTURES } from '../../data/mockData';
-import { Student, Assignment, StudentApplication } from '../../types';
+import { INITIAL_LIVE_CLASSES, INITIAL_ASSIGNMENTS, INITIAL_LECTURES, INITIAL_DOMAINS } from '../../data/mockData';
+import { Student, Assignment, StudentApplication, LiveClass, RecordedLecture } from '../../types';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { PdfResumeModal } from '../common/PdfResumeModal';
@@ -48,9 +53,18 @@ import { RecordPaymentModal } from '../common/RecordPaymentModal';
 import { AttendanceReportPreviewModal } from '../common/AttendanceReportPreviewModal';
 import { generateAttendancePDF } from '../../utils/pdfGenerator';
 import { StudentAttendanceProofModal } from '../common/StudentAttendanceProofModal';
+import { ScheduleLectureModal } from '../common/ScheduleLectureModal';
+import { EndClassRecordingModal } from '../common/EndClassRecordingModal';
+import { LectureVideoModal } from '../common/LectureVideoModal';
+import { getLectureRealTimeStatus, getLectureCountdown, formatLectureSchedule, parseVideoEmbed } from '../../utils/lectureTimeUtils';
 
 export const MentorDashboard: React.FC = () => {
-  const { students, applications, updateApplicationStatus, assignments, addAssignment, submissions, attendanceReports, saveAttendanceReport, liveClasses, recordedLectures, addLiveClass, addRecordedLecture, endLiveClass, resetData } = useData();
+  const { 
+    students, applications, updateApplicationStatus, assignments, addAssignment, 
+    submissions, attendanceReports, saveAttendanceReport, 
+    liveClasses, recordedLectures, addLiveClass, updateLiveClass, deleteLiveClass, 
+    addRecordedLecture, deleteRecordedLecture, endLiveClass, resetData 
+  } = useData();
   const { user } = useAuth();
   const mentorName = user?.name || 'Mentor';
 
@@ -250,12 +264,25 @@ export const MentorDashboard: React.FC = () => {
     };
   };
 
-  // New Live Class State
-  const [newLiveClass, setNewLiveClass] = useState({ title: '', domain: 'MERN Stack Development', batch: 'Batch W-2026-A', date: '', time: '', durationMinutes: 60, meetingPlatform: 'Zoom' as const, meetingUrl: '' });
-
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [editingLecture, setEditingLecture] = useState<LiveClass | null>(null);
+  const [endingLecture, setEndingLecture] = useState<LiveClass | null>(null);
+  const [activeVideoModal, setActiveVideoModal] = useState<{
+    videoUrl: string;
+    title: string;
+    domain?: string;
+    batch?: string;
+    mentorName?: string;
+    duration?: string;
+    date?: string;
+    notesUrl?: string;
+    notesFileName?: string;
+  } | null>(null);
+  const [materialsBatchFilter, setMaterialsBatchFilter] = useState<string>('All');
+  const [materialsStatusFilter, setMaterialsStatusFilter] = useState<'All' | 'Live' | 'Upcoming' | 'Completed'>('All');
+  const [materialsSearch, setMaterialsSearch] = useState<string>('');
   const [newAssignment, setNewAssignment] = useState({
     title: '',
     domain: 'MERN Stack Development',
@@ -318,16 +345,6 @@ export const MentorDashboard: React.FC = () => {
     setVideoFile(null);
     setVideoPreviewUrl(null);
     setShowUploadModal(false);
-  };
-
-  const handleScheduleLiveClass = (e: React.FormEvent) => {
-    e.preventDefault();
-    addLiveClass({
-      ...newLiveClass,
-      mentorName
-    });
-    setNewLiveClass({ title: '', domain: 'MERN Stack Development', batch: 'Batch W-2026-A', date: '', time: '', durationMinutes: 60, meetingPlatform: 'Zoom', meetingUrl: '' });
-    setShowScheduleModal(false);
   };
 
   const filteredApps = applications.filter(a => {
@@ -1638,202 +1655,546 @@ export const MentorDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 5: LECTURES & NOTES */}
+      {/* TAB 5: LECTURES & STUDY MATERIALS */}
       {activeTab === 'materials' && (
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-card p-6 space-y-6">
-          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-4 border-b border-slate-100">
-            <div>
-              <h3 className="text-lg font-black text-slate-900 tracking-tight">Study Materials & Live Classes</h3>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">Manage your class schedules and upload resources</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <button 
-                onClick={() => setShowScheduleModal(true)}
-                className="px-5 py-2.5 text-xs font-bold text-white bg-blue-500 hover:bg-blue-600 rounded-2xl shadow-md transition-all flex items-center justify-center space-x-1.5 active:scale-95"
-              >
-                <Video className="w-4 h-4 stroke-[3]" />
-                <span>Schedule Live Class</span>
-              </button>
-              <button 
-                onClick={() => setShowUploadModal(true)}
-                className="px-5 py-2.5 text-xs font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-2xl shadow-md transition-all flex items-center justify-center space-x-1.5 active:scale-95"
-              >
-                <Upload className="w-4 h-4 stroke-[3]" />
-                <span>Upload Material</span>
-              </button>
+        <div className="space-y-6">
+          {/* Top Header Banner */}
+          <div className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-800">
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                    Real-time Class Broadcasting
+                  </span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                  Lecture Scheduling & Video Resource Center
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-300 max-w-2xl font-medium">
+                  Schedule live classes with precision timing, broadcast meeting links to specific intern batches, and seamlessly publish session recordings upon lecture completion.
+                </p>
+
+                {/* Quick Stats Pill Row */}
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <div className="px-3.5 py-1.5 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md flex items-center space-x-2">
+                    <Radio className="w-4 h-4 text-rose-400" />
+                    <span className="text-xs font-extrabold text-white">
+                      {liveClasses.filter(c => getLectureRealTimeStatus(c) === 'Live').length} Live Now
+                    </span>
+                  </div>
+                  <div className="px-3.5 py-1.5 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md flex items-center space-x-2">
+                    <Calendar className="w-4 h-4 text-indigo-400" />
+                    <span className="text-xs font-extrabold text-white">
+                      {liveClasses.filter(c => getLectureRealTimeStatus(c) === 'Upcoming').length} Upcoming
+                    </span>
+                  </div>
+                  <div className="px-3.5 py-1.5 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md flex items-center space-x-2">
+                    <Video className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs font-extrabold text-white">
+                      {recordedLectures.length} Recorded Library
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap sm:flex-col gap-3 shrink-0">
+                <button 
+                  onClick={() => {
+                    setEditingLecture(null);
+                    setShowScheduleModal(true);
+                  }}
+                  className="px-5 py-3 text-xs font-black text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 rounded-2xl shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center space-x-2 active:scale-95 cursor-pointer"
+                >
+                  <Calendar className="w-4 h-4 stroke-[2.5]" />
+                  <span>+ Schedule Live Class</span>
+                </button>
+                <button 
+                  onClick={() => setShowUploadModal(true)}
+                  className="px-5 py-3 text-xs font-black text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 rounded-2xl shadow-lg shadow-orange-500/30 transition-all flex items-center justify-center space-x-2 active:scale-95 cursor-pointer"
+                >
+                  <Upload className="w-4 h-4 stroke-[2.5]" />
+                  <span>Upload / Add Recording</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="space-y-4 pt-2">
-            {liveClasses.length > 0 && (
-              <div className="mb-8">
-                <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></div>
-                  Scheduled Live Classes ({liveClasses.length})
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {liveClasses.map((lc) => (
-                    <div key={lc.id} className="p-4 bg-blue-50/50 rounded-2xl border border-blue-200 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">{lc.meetingPlatform}</span>
-                          <span className="text-[10px] font-bold text-slate-500">{lc.batch}</span>
-                        </div>
-                        <h4 className="font-bold text-slate-900 text-sm">{lc.title}</h4>
-                        <p className="text-[11px] text-slate-600 mt-1">🕒 {lc.date} at {lc.time} • {lc.durationMinutes} mins</p>
-                      </div>
-                      <button 
-                        onClick={() => {
-                          // Automatically save the meeting URL as the recording link
-                          endLiveClass(lc.id, lc.meetingUrl);
-                        }}
-                        className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center justify-center space-x-1.5 whitespace-nowrap"
-                      >
-                        <XCircle className="w-4 h-4" />
-                        <span>End Class & Save</span>
-                      </button>
-                    </div>
+          {/* Filtering & Search Toolbar */}
+          <div className="bg-white rounded-3xl border border-slate-200/90 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* Search Input */}
+            <div className="relative flex-1 min-w-[200px] max-w-md">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search lectures by topic, domain, or batch..."
+                value={materialsSearch}
+                onChange={(e) => setMaterialsSearch(e.target.value)}
+                className="w-full pl-10 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400"
+              />
+              {materialsSearch && (
+                <button
+                  onClick={() => setMaterialsSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Filter Pills: Batch & Status */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex items-center space-x-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+                <span className="text-[10px] font-black uppercase text-slate-400">Batch:</span>
+                <select
+                  value={materialsBatchFilter}
+                  onChange={(e) => setMaterialsBatchFilter(e.target.value)}
+                  className="bg-transparent text-xs font-extrabold text-slate-800 focus:outline-none cursor-pointer"
+                >
+                  <option value="All">All Batches</option>
+                  {availableAttendanceBatches.map(b => (
+                    <option key={b} value={b}>{b}</option>
                   ))}
-                </div>
+                </select>
               </div>
-            )}
 
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-2xl border border-slate-200">
+                {(['All', 'Live', 'Upcoming', 'Completed'] as const).map(st => (
+                  <button
+                    key={st}
+                    onClick={() => setMaterialsStatusFilter(st)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                      materialsStatusFilter === st
+                        ? 'bg-white text-indigo-700 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {st === 'Live' ? '🔴 Live Now' : st === 'Upcoming' ? '📅 Upcoming' : st === 'Completed' ? '🎬 Completed' : 'All Classes'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 1: SCHEDULED & LIVE LECTURES */}
+          <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-xs space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-9 h-9 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                  <Calendar className="w-5 h-5" />
+                </div>
                 <div>
-                  <h3 className="text-base font-extrabold text-slate-900 flex items-center space-x-2">
-                    <Play className="w-4 h-4 text-orange-500 fill-orange-500" />
-                    <span>Published Study Materials & Video Lectures</span>
-                    <span className="text-xs bg-orange-100 text-orange-800 font-extrabold px-2.5 py-0.5 rounded-full border border-orange-200">
-                      {recordedLectures.length} total
-                    </span>
-                  </h3>
-                  <p className="text-xs text-slate-500 font-medium">Manage and preview all course materials published to student portals</p>
-                </div>
-
-                {/* Search Box */}
-                <div className="relative w-full md:w-64">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Search published videos..."
-                    value={mentorVideoSearch}
-                    onChange={(e) => {
-                      setMentorVideoSearch(e.target.value);
-                      setMentorVideoPage(1);
-                    }}
-                    className="w-full pl-9 pr-7 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-slate-900 placeholder:text-slate-400"
-                  />
-                  {mentorVideoSearch && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMentorVideoSearch('');
-                        setMentorVideoPage(1);
-                      }}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                  <h4 className="text-base font-black text-slate-900 tracking-tight">
+                    Active & Scheduled Class Sessions
+                  </h4>
+                  <p className="text-xs text-slate-500 font-medium">Real-time status calculated automatically by session date & start/end time</p>
                 </div>
               </div>
+              <span className="text-xs font-black text-indigo-800 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200">
+                {liveClasses.length} Scheduled
+              </span>
+            </div>
 
-              {recordedLectures.length === 0 ? (
-                <div className="text-center py-10 bg-slate-50 rounded-2xl border border-slate-200">
-                  <Video className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                  <p className="text-xs font-bold text-slate-500">No study materials published yet</p>
-                </div>
-              ) : (() => {
-                const filtered = recordedLectures.filter((lec) => {
-                  const q = (mentorVideoSearch || '').trim().toLowerCase();
-                  const matchesSearch = !q ||
-                    (lec.title || '').toLowerCase().includes(q) || 
-                    (lec.domain || '').toLowerCase().includes(q) ||
-                    `week ${lec.week || ''}`.toLowerCase().includes(q);
-                  const matchesWeek = mentorVideoWeekFilter === 'All' || lec.week.toString() === mentorVideoWeekFilter;
-                  return matchesSearch && matchesWeek;
-                });
+            {(() => {
+              const q = materialsSearch.trim().toLowerCase();
+              const filtered = liveClasses.filter(lc => {
+                const rtStatus = getLectureRealTimeStatus(lc);
+                const matchesStatus = 
+                  materialsStatusFilter === 'All' ? true :
+                  materialsStatusFilter === 'Live' ? rtStatus === 'Live' :
+                  materialsStatusFilter === 'Upcoming' ? rtStatus === 'Upcoming' :
+                  rtStatus === 'Completed';
 
-                const totalPages = Math.ceil(filtered.length / mentorVideosPerPage) || 1;
-                const currentPage = Math.min(mentorVideoPage, totalPages);
-                const paginated = filtered.slice(
-                  (currentPage - 1) * mentorVideosPerPage,
-                  currentPage * mentorVideosPerPage
-                );
+                const matchesBatch = materialsBatchFilter === 'All' || lc.batch === materialsBatchFilter || lc.batch === 'All Batches';
 
-                if (filtered.length === 0) {
-                  return (
-                    <div className="text-center py-8 bg-orange-50/30 rounded-2xl border border-orange-100 p-4">
-                      <p className="text-xs font-bold text-slate-700">No published materials match "{mentorVideoSearch}"</p>
-                      <button
-                        type="button"
-                        onClick={() => { setMentorVideoSearch(''); setMentorVideoWeekFilter('All'); setMentorVideoPage(1); }}
-                        className="mt-2 text-xs font-extrabold text-orange-600 underline"
-                      >
-                        Reset Search Filters
-                      </button>
-                    </div>
-                  );
-                }
+                const matchesSearch = !q ||
+                  (lc.title || '').toLowerCase().includes(q) ||
+                  (lc.domain || '').toLowerCase().includes(q) ||
+                  (lc.batch || '').toLowerCase().includes(q) ||
+                  (lc.mentorName || '').toLowerCase().includes(q);
 
+                return matchesStatus && matchesBatch && matchesSearch;
+              });
+
+              if (filtered.length === 0) {
                 return (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {paginated.map((lec) => (
-                        <div key={lec.id} className="p-4 bg-slate-50 hover:bg-white rounded-2xl border border-slate-200 hover:border-orange-300 flex justify-between items-center group transition-all shadow-2xs">
-                          <div className="flex space-x-3 items-center">
-                            <div className="w-14 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 text-white flex items-center justify-center flex-shrink-0 font-black text-xs shadow-sm">
-                              Week {lec.week}
-                            </div>
-                            <div className="max-w-[200px] sm:max-w-[280px]">
-                              <h4 className="font-bold text-slate-900 text-xs group-hover:text-orange-600 transition-colors line-clamp-1">{lec.title}</h4>
-                              <p className="text-[11px] text-slate-500 mt-0.5">{lec.domain} • Duration: {lec.duration}</p>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setPlayingMentorVideo(lec.videoUrl)}
-                            className="px-3 py-1.5 bg-orange-100 hover:bg-orange-200 text-orange-800 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 whitespace-nowrap active:scale-95 shadow-2xs"
-                          >
-                            <Play className="w-3.5 h-3.5 fill-orange-700 text-orange-700" />
-                            <span>Watch</span>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Pagination Bar */}
-                    {totalPages > 1 && (
-                      <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                        <p className="text-xs font-bold text-slate-500">
-                          Showing {(currentPage - 1) * mentorVideosPerPage + 1} - {Math.min(currentPage * mentorVideosPerPage, filtered.length)} of {filtered.length}
-                        </p>
-                        <div className="flex items-center space-x-1">
-                          <button
-                            type="button"
-                            onClick={() => setMentorVideoPage(prev => Math.max(prev - 1, 1))}
-                            disabled={currentPage === 1}
-                            className="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 disabled:opacity-40"
-                          >
-                            Prev
-                          </button>
-                          <span className="text-xs font-bold px-2 text-slate-700">{currentPage} / {totalPages}</span>
-                          <button
-                            type="button"
-                            onClick={() => setMentorVideoPage(prev => Math.min(prev + 1, totalPages))}
-                            disabled={currentPage === totalPages}
-                            className="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 disabled:opacity-40"
-                          >
-                            Next
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                  <div className="text-center py-12 bg-slate-50/70 rounded-3xl border border-slate-200/80 space-y-3">
+                    <Video className="w-12 h-12 text-slate-300 mx-auto" />
+                    <h5 className="text-sm font-extrabold text-slate-700">No scheduled classes match this filter</h5>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                      Schedule a new live class or select "All Batches" to view all active timetable sessions.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setEditingLecture(null);
+                        setShowScheduleModal(true);
+                      }}
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-extrabold shadow-sm hover:bg-indigo-700 transition-all cursor-pointer"
+                    >
+                      + Schedule Lecture Now
+                    </button>
                   </div>
                 );
-              })()}
+              }
+
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {filtered.map(lc => {
+                    const rtStatus = getLectureRealTimeStatus(lc);
+                    const countdown = getLectureCountdown(lc);
+                    const scheduleStr = formatLectureSchedule(lc);
+                    const isLive = rtStatus === 'Live';
+                    const isUpcoming = rtStatus === 'Upcoming';
+                    const isCompleted = rtStatus === 'Completed';
+
+                    return (
+                      <div 
+                        key={lc.id}
+                        className={`rounded-3xl p-5 border transition-all duration-300 flex flex-col justify-between space-y-4 shadow-xs hover:shadow-md ${
+                          isLive 
+                            ? 'bg-rose-50/40 border-rose-300 ring-2 ring-rose-500/20' 
+                            : isUpcoming 
+                            ? 'bg-indigo-50/30 border-indigo-200/80 hover:border-indigo-300' 
+                            : 'bg-slate-50/70 border-slate-200'
+                        }`}
+                      >
+                        {/* Top Badges & Timing Status */}
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            {/* Live / Upcoming / Completed Indicator */}
+                            {isLive ? (
+                              <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-rose-600 text-white shadow-xs shadow-rose-600/30 animate-pulse">
+                                <span className="w-2 h-2 rounded-full bg-white"></span>
+                                <span>{countdown.badgeText}</span>
+                              </span>
+                            ) : isUpcoming ? (
+                              <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                                <Clock className="w-3 h-3 text-indigo-600" />
+                                <span>{countdown.badgeText}</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                <CheckCircle className="w-3 h-3 text-emerald-600" />
+                                <span>Completed & Recorded</span>
+                              </span>
+                            )}
+
+                            {/* Batch Pill */}
+                            <span className="text-[10px] font-black px-2.5 py-0.5 rounded-lg bg-white border border-slate-200 text-slate-700 shadow-2xs">
+                              {lc.batch}
+                            </span>
+                          </div>
+
+                          {/* Title & Description */}
+                          <div>
+                            <h4 className="text-sm font-black text-slate-900 line-clamp-2 mt-1">
+                              {lc.title}
+                            </h4>
+                            {lc.description && (
+                              <p className="text-xs text-slate-600 font-medium line-clamp-2 mt-1">
+                                {lc.description}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Metadata Grid */}
+                          <div className="pt-2 border-t border-slate-200/60 grid grid-cols-2 gap-2 text-[11px] font-medium text-slate-600">
+                            <div className="flex items-center space-x-1.5">
+                              <Calendar className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                              <span className="truncate">{scheduleStr}</span>
+                            </div>
+                            <div className="flex items-center space-x-1.5">
+                              <Video className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                              <span className="truncate">{lc.meetingPlatform}</span>
+                            </div>
+                            <div className="flex items-center space-x-1.5">
+                              <UserCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                              <span className="truncate">Mentor: <strong>{lc.mentorName}</strong></span>
+                            </div>
+                            <div className="flex items-center space-x-1.5">
+                              <Layers className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                              <span className="truncate">{lc.domain}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons Row */}
+                        <div className="pt-3 border-t border-slate-200/60 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center space-x-2">
+                            {/* Join Live Meeting Link */}
+                            {lc.meetingUrl && !isCompleted && (
+                              <a
+                                href={lc.meetingUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center space-x-1.5 shadow-xs cursor-pointer ${
+                                  isLive 
+                                    ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/30' 
+                                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                                }`}
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                <span>{isLive ? 'Join Live Now' : 'Join Link'}</span>
+                              </a>
+                            )}
+
+                            {/* If session has recording, allow instant playback */}
+                            {lc.recordingUrl && (
+                              <button
+                                onClick={() => setActiveVideoModal({
+                                  videoUrl: lc.recordingUrl!,
+                                  title: lc.title,
+                                  domain: lc.domain,
+                                  batch: lc.batch,
+                                  mentorName: lc.mentorName,
+                                  duration: `${lc.durationMinutes}m`,
+                                  date: lc.date,
+                                  notesUrl: lc.notesUrl,
+                                  notesFileName: lc.notesFileName
+                                })}
+                                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all flex items-center space-x-1 shadow-xs cursor-pointer"
+                              >
+                                <Play className="w-3.5 h-3.5 fill-white" />
+                                <span>Play Recording</span>
+                              </button>
+                            )}
+
+                            {/* End Class & Publish Recording Button */}
+                            {!isCompleted && (
+                              <button
+                                onClick={() => setEndingLecture(lc)}
+                                className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer"
+                                title="End lecture and add recording URL/video"
+                              >
+                                <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                                <span>End & Publish</span>
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Edit & Delete Controls */}
+                          <div className="flex items-center space-x-1">
+                            <button
+                              onClick={() => setEditingLecture(lc)}
+                              className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-white rounded-xl transition-colors border border-transparent hover:border-slate-200 cursor-pointer"
+                              title="Edit scheduled class"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Are you sure you want to delete "${lc.title}"?`)) {
+                                  deleteLiveClass(lc.id);
+                                }
+                              }}
+                              className="p-2 text-slate-500 hover:text-rose-600 hover:bg-white rounded-xl transition-colors border border-transparent hover:border-slate-200 cursor-pointer"
+                              title="Delete class"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* SECTION 2: PUBLISHED RECORDED LECTURES & STUDY MATERIALS */}
+          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xs p-6 space-y-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-9 h-9 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
+                  <Play className="w-5 h-5 fill-orange-500 text-orange-500" />
+                </div>
+                <div>
+                  <h4 className="text-base font-black text-slate-900 tracking-tight flex items-center space-x-2">
+                    <span>Published Batch Video Lectures & Study Notes</span>
+                    <span className="text-xs bg-orange-100 text-orange-800 font-black px-2.5 py-0.5 rounded-full border border-orange-200">
+                      {recordedLectures.length} Total
+                    </span>
+                  </h4>
+                  <p className="text-xs text-slate-500 font-medium">All archived class recordings available for interns to watch anytime</p>
+                </div>
+              </div>
+
+              {/* Search Inside Videos */}
+              <div className="relative w-full md:w-64">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search published videos..."
+                  value={mentorVideoSearch}
+                  onChange={(e) => {
+                    setMentorVideoSearch(e.target.value);
+                    setMentorVideoPage(1);
+                  }}
+                  className="w-full pl-9 pr-7 py-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-slate-900 placeholder:text-slate-400"
+                />
+                {mentorVideoSearch && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMentorVideoSearch('');
+                      setMentorVideoPage(1);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
+
+            {recordedLectures.length === 0 ? (
+              <div className="text-center py-12 bg-slate-50 rounded-3xl border border-slate-200/80 space-y-2">
+                <Video className="w-10 h-10 text-slate-300 mx-auto" />
+                <p className="text-xs font-black text-slate-700">No recorded lectures published yet</p>
+                <p className="text-[11px] text-slate-400">When you end a live class or upload a file, it will appear here automatically.</p>
+              </div>
+            ) : (() => {
+              const q = (mentorVideoSearch || '').trim().toLowerCase();
+              const filtered = recordedLectures.filter((lec) => {
+                const matchesSearch = !q ||
+                  (lec.title || '').toLowerCase().includes(q) || 
+                  (lec.domain || '').toLowerCase().includes(q) ||
+                  (lec.batch || '').toLowerCase().includes(q) ||
+                  `week ${lec.week || ''}`.toLowerCase().includes(q);
+                const matchesBatch = materialsBatchFilter === 'All' || lec.batch === materialsBatchFilter || !lec.batch;
+                return matchesSearch && matchesBatch;
+              });
+
+              const totalPages = Math.ceil(filtered.length / mentorVideosPerPage) || 1;
+              const currentPage = Math.min(mentorVideoPage, totalPages);
+              const paginated = filtered.slice(
+                (currentPage - 1) * mentorVideosPerPage,
+                currentPage * mentorVideosPerPage
+              );
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="text-center py-8 bg-orange-50/30 rounded-2xl border border-orange-100 p-4">
+                    <p className="text-xs font-bold text-slate-700">No published materials match "{mentorVideoSearch}"</p>
+                    <button
+                      type="button"
+                      onClick={() => { setMentorVideoSearch(''); setMentorVideoPage(1); }}
+                      className="mt-2 text-xs font-extrabold text-orange-600 underline cursor-pointer"
+                    >
+                      Reset Search Filters
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {paginated.map((lec) => (
+                      <div 
+                        key={lec.id} 
+                        className="p-4 bg-slate-50 hover:bg-white rounded-3xl border border-slate-200 hover:border-orange-300 flex flex-col justify-between space-y-3 group transition-all shadow-2xs hover:shadow-md"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black text-orange-800 bg-orange-100 px-2.5 py-0.5 rounded-full border border-orange-200">
+                              Week {lec.week || 1}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
+                              {lec.batch || 'All Batches'}
+                            </span>
+                          </div>
+
+                          <h5 className="font-extrabold text-slate-900 text-xs group-hover:text-orange-600 transition-colors line-clamp-2">
+                            {lec.title}
+                          </h5>
+                          <p className="text-[11px] text-slate-500 font-medium">
+                            {lec.domain} • 🕒 {lec.duration}
+                          </p>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setActiveVideoModal({
+                              videoUrl: lec.videoUrl,
+                              title: lec.title,
+                              domain: lec.domain,
+                              batch: lec.batch,
+                              mentorName: lec.mentorName,
+                              duration: lec.duration,
+                              date: lec.date,
+                              notesUrl: lec.pdfNotesUrl,
+                              notesFileName: lec.pdfNotesName
+                            })}
+                            className="flex-1 py-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 cursor-pointer"
+                          >
+                            <Play className="w-3.5 h-3.5 fill-white" />
+                            <span>Watch</span>
+                          </button>
+
+                          {lec.pdfNotesUrl && lec.pdfNotesUrl !== '#' && (
+                            <a
+                              href={lec.pdfNotesUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-2 bg-white text-slate-700 hover:text-indigo-600 rounded-xl border border-slate-200 transition-colors cursor-pointer"
+                              title="Download Notes"
+                            >
+                              <Download className="w-4 h-4" />
+                            </a>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Delete lecture "${lec.title}"?`)) {
+                                deleteRecordedLecture(lec.id);
+                              }
+                            }}
+                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-white rounded-xl transition-colors border border-transparent hover:border-slate-200 cursor-pointer"
+                            title="Delete video"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Pagination Bar */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                      <p className="text-xs font-bold text-slate-500">
+                        Showing {(currentPage - 1) * mentorVideosPerPage + 1} - {Math.min(currentPage * mentorVideosPerPage, filtered.length)} of {filtered.length}
+                      </p>
+                      <div className="flex items-center space-x-1">
+                        <button
+                          type="button"
+                          onClick={() => setMentorVideoPage(prev => Math.max(prev - 1, 1))}
+                          disabled={currentPage === 1}
+                          className="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 disabled:opacity-40 cursor-pointer"
+                        >
+                          Prev
+                        </button>
+                        <span className="text-xs font-bold px-2 text-slate-700">{currentPage} / {totalPages}</span>
+                        <button
+                          type="button"
+                          onClick={() => setMentorVideoPage(prev => Math.min(prev + 1, totalPages))}
+                          disabled={currentPage === totalPages}
+                          className="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 disabled:opacity-40 cursor-pointer"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -1994,114 +2355,58 @@ export const MentorDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* SCHEDULE LIVE CLASS MODAL */}
-      {showScheduleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div 
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
-            onClick={() => setShowScheduleModal(false)}
-          ></div>
-          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="bg-blue-600 p-6 text-white flex justify-between items-center relative overflow-hidden">
-              <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
-              <div className="flex items-center space-x-3 relative z-10">
-                <div className="w-10 h-10 bg-white/20 rounded-2xl backdrop-blur-md flex items-center justify-center border border-white/30 shadow-inner">
-                  <Video className="w-5 h-5 text-white drop-shadow-md" />
-                </div>
-                <div>
-                  <h3 className="font-black text-lg drop-shadow-md">Schedule Live Interactive Class</h3>
-                  <p className="text-[11px] font-medium text-white/90 drop-shadow-sm">Host via Zoom, Google Meet, or Teams</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setShowScheduleModal(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/25 transition-all backdrop-blur-md relative z-10 active:scale-90"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            
-            <form onSubmit={handleScheduleLiveClass} className="p-6 space-y-5 text-sm">
-              <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-2 uppercase tracking-wide">Class Title <span className="text-rose-500">*</span></label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Live Q&A & Code Review Session"
-                  value={newLiveClass.title}
-                  onChange={(e) => setNewLiveClass({ ...newLiveClass, title: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold text-slate-900 placeholder:text-slate-400 placeholder:font-medium shadow-sm"
-                />
-              </div>
+      {/* SCHEDULE & EDIT LECTURE MODAL */}
+      <ScheduleLectureModal
+        isOpen={showScheduleModal || !!editingLecture}
+        onClose={() => {
+          setShowScheduleModal(false);
+          setEditingLecture(null);
+        }}
+        onSave={(data) => {
+          if (editingLecture) {
+            updateLiveClass(editingLecture.id, data);
+          } else {
+            addLiveClass({
+              ...data,
+              status: data.status || 'Upcoming',
+              mentorName: data.mentorName || mentorName
+            });
+          }
+          setShowScheduleModal(false);
+          setEditingLecture(null);
+        }}
+        initialData={editingLecture}
+        domains={INITIAL_DOMAINS.map(d => d.name)}
+        batches={availableAttendanceBatches}
+        currentMentorName={mentorName}
+      />
 
-              <div className="grid grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 mb-2 uppercase tracking-wide">Date <span className="text-rose-500">*</span></label>
-                  <input
-                    type="date"
-                    required
-                    value={newLiveClass.date}
-                    onChange={(e) => setNewLiveClass({ ...newLiveClass, date: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold text-slate-900 shadow-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 mb-2 uppercase tracking-wide">Time <span className="text-rose-500">*</span></label>
-                  <input
-                    type="time"
-                    required
-                    value={newLiveClass.time}
-                    onChange={(e) => setNewLiveClass({ ...newLiveClass, time: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold text-slate-900 shadow-sm"
-                  />
-                </div>
-              </div>
+      {/* END CLASS & PUBLISH RECORDING MODAL */}
+      <EndClassRecordingModal
+        isOpen={!!endingLecture}
+        onClose={() => setEndingLecture(null)}
+        onConfirm={(classId, recordingUrl, notesUrl, notesFileName) => {
+          endLiveClass(classId, recordingUrl, notesUrl, notesFileName);
+          setEndingLecture(null);
+        }}
+        liveClass={endingLecture}
+      />
 
-              <div className="grid grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 mb-2 uppercase tracking-wide">Meeting Platform <span className="text-rose-500">*</span></label>
-                  <select
-                    value={newLiveClass.meetingPlatform}
-                    onChange={(e) => setNewLiveClass({ ...newLiveClass, meetingPlatform: e.target.value as any })}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold text-slate-900 appearance-none shadow-sm cursor-pointer"
-                  >
-                    <option value="Zoom">🔷 Zoom Meeting</option>
-                    <option value="Google Meet">🔴 Google Meet</option>
-                    <option value="Microsoft Teams">🟣 Microsoft Teams</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 mb-2 uppercase tracking-wide">Live Join Link <span className="text-rose-500">*</span></label>
-                  <input
-                    type="url"
-                    required
-                    placeholder={newLiveClass.meetingPlatform === 'Zoom' ? "https://zoom.us/j/..." : "https://meet.google.com/..."}
-                    value={newLiveClass.meetingUrl}
-                    onChange={(e) => setNewLiveClass({ ...newLiveClass, meetingUrl: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold text-slate-900 placeholder:text-slate-400 placeholder:font-medium shadow-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-4 flex items-center justify-end space-x-3 border-t border-slate-100 mt-4">
-                <button 
-                  type="button"
-                  onClick={() => setShowScheduleModal(false)}
-                  className="px-5 py-2.5 text-sm font-extrabold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all active:scale-95"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="px-6 py-2.5 text-sm font-extrabold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md transition-all active:scale-95 flex items-center space-x-1.5"
-                >
-                  <Video className="w-4 h-4 stroke-[3]" />
-                  <span>Schedule Class</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* UNIVERSAL LECTURE VIDEO PLAYER MODAL */}
+      {activeVideoModal && (
+        <LectureVideoModal
+          isOpen={!!activeVideoModal}
+          onClose={() => setActiveVideoModal(null)}
+          videoUrl={activeVideoModal.videoUrl}
+          title={activeVideoModal.title}
+          domain={activeVideoModal.domain}
+          batch={activeVideoModal.batch}
+          mentorName={activeVideoModal.mentorName}
+          duration={activeVideoModal.duration}
+          date={activeVideoModal.date}
+          notesUrl={activeVideoModal.notesUrl}
+          notesFileName={activeVideoModal.notesFileName}
+        />
       )}
 
       {/* UPLOAD RECORDED LECTURE / MATERIAL MODAL */}

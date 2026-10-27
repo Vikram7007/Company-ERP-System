@@ -357,11 +357,14 @@ router.patch('/attendance/reports/:id', authenticate, authorize('CEO', 'Mentor')
 
 router.get('/live-classes', authenticate, (req, res) => ok(res, query(store.liveClasses, req)));
 router.post('/live-classes', authenticate, authorize('CEO', 'Mentor'), (req, res) => ok(res, add(store.liveClasses, { ...req.body, createdBy: req.user.id, status: req.body.status || 'Scheduled' }, 'class'), 201));
-router.patch('/live-classes/:id/end', authenticate, authorize('CEO', 'Mentor'), (req, res) => { const item = find(store.liveClasses, req.params.id); return item ? ok(res, update(store.liveClasses, item, { status: 'Completed', endedAt: new Date().toISOString() })) : fail(res, 'Live class not found', 404); });
+router.patch('/live-classes/:id', authenticate, authorize('CEO', 'Mentor'), (req, res) => { const item = find(store.liveClasses, req.params.id); return item ? ok(res, update(store.liveClasses, item, req.body)) : fail(res, 'Live class not found', 404); });
+router.patch('/live-classes/:id/end', authenticate, authorize('CEO', 'Mentor'), (req, res) => { const item = find(store.liveClasses, req.params.id); return item ? ok(res, update(store.liveClasses, item, { status: 'Completed', recordingUrl: req.body.recordingUrl, notesUrl: req.body.notesUrl, notesFileName: req.body.notesFileName, endedAt: new Date().toISOString() })) : fail(res, 'Live class not found', 404); });
+router.delete('/live-classes/:id', authenticate, authorize('CEO', 'Mentor'), (req, res) => { const item = find(store.liveClasses, req.params.id); if (!item) return fail(res, 'Live class not found', 404); remove(store.liveClasses, item); return ok(res, { message: 'Live class deleted' }); });
 
 router.get('/lectures', authenticate, (req, res) => ok(res, query(store.lectures, req)));
 router.post('/lectures', authenticate, authorize('CEO', 'Mentor'), (req, res) => ok(res, add(store.lectures, { ...req.body, uploadedBy: req.user.id, status: 'Published' }, 'lec'), 201));
 router.patch('/lectures/:id', authenticate, authorize('CEO', 'Mentor'), (req, res) => { const item = find(store.lectures, req.params.id); return item ? ok(res, update(store.lectures, item, req.body)) : fail(res, 'Lecture not found', 404); });
+router.delete('/lectures/:id', authenticate, authorize('CEO', 'Mentor'), (req, res) => { const item = find(store.lectures, req.params.id); if (!item) return fail(res, 'Lecture not found', 404); remove(store.lectures, item); return ok(res, { message: 'Lecture deleted' }); });
 
 router.get('/quizzes', authenticate, (req, res) => ok(res, query(store.quizzes, req)));
 router.post('/quizzes', authenticate, authorize('CEO', 'Mentor'), (req, res) => ok(res, add(store.quizzes, { ...req.body, createdBy: req.user.id }, 'quiz'), 201));

@@ -1009,42 +1009,52 @@ export const INITIAL_MENTORS: Mentor[] = [];
 export const INITIAL_LIVE_CLASSES: LiveClass[] = [
   {
     id: 'lc-1',
-    title: 'Enterprise MERN Architecture & Redux Toolkit state sync',
+    title: 'Enterprise MERN Architecture & Redux Toolkit State Sync',
+    description: 'In-depth review of async thunks, store middleware, and full-stack JWT authorization.',
     domain: 'MERN Stack Development',
     batch: 'Batch W-2026-A',
     mentorName: 'Vikram Lale',
-    date: '2026-07-28',
-    time: '18:00 IST',
+    date: new Date().toISOString().split('T')[0],
+    time: '10:00',
+    endTime: '11:30',
     durationMinutes: 90,
-    meetingPlatform: 'Zoom',
-    meetingUrl: 'https://zoom.us/j/9876543210',
-    status: 'Upcoming'
+    meetingPlatform: 'Google Meet',
+    meetingUrl: 'https://meet.google.com/abc-websums-mern',
+    status: 'Live',
+    notesUrl: 'https://github.com/websums/enterprise-mern-architecture',
+    notesFileName: 'MERN_Architecture_Guide.pdf'
   },
   {
     id: 'lc-2',
-    title: 'Transformer Models & Attention Mechanism in PyTorch',
-    domain: 'Artificial Intelligence & Deep Learning',
-    batch: 'Batch W-2026-B',
-    mentorName: 'Vaishanavi Bhandure',
-    date: '2026-07-28',
-    time: '20:00 IST',
+    title: 'Data Science & PyTorch Deep Learning Pipelines',
+    description: 'Hands-on matrix operations in NumPy, tensor calculus, and neural network training routines.',
+    domain: 'Data Science & Data Analytics',
+    batch: 'Batch RK-Gurukul-DS',
+    mentorName: 'Vikram Lale',
+    date: new Date().toISOString().split('T')[0],
+    time: '18:00',
+    endTime: '19:30',
     durationMinutes: 90,
-    meetingPlatform: 'Google Meet',
-    meetingUrl: 'https://meet.google.com/abc-defg-hij',
-    status: 'Upcoming'
+    meetingPlatform: 'Zoom',
+    meetingUrl: 'https://zoom.us/j/9876543210',
+    status: 'Upcoming',
+    notesUrl: 'https://github.com/websums/data-science-gurukul',
+    notesFileName: 'PyTorch_Data_Pipelines.pdf'
   },
   {
     id: 'lc-3',
-    title: 'Dockerizing Microservices & Container Networking',
+    title: 'Production Dockerizing, Microservices & CI/CD Pipelines',
+    description: 'Containerizing multi-service web apps, docker-compose orchestration, and cloud deployments.',
     domain: 'DevOps & Cloud Computing (AWS/Docker)',
     batch: 'Batch W-2026-A',
     mentorName: 'Aishwarya Kadam',
-    date: '2026-07-27',
-    time: '17:00 IST',
+    date: new Date().toISOString().split('T')[0],
+    time: '16:00',
+    endTime: '17:00',
     durationMinutes: 60,
     meetingPlatform: 'Microsoft Teams',
     meetingUrl: 'https://teams.microsoft.com/l/meetup-join/12345',
-    status: 'Live'
+    status: 'Upcoming'
   }
 ];
 
@@ -1052,35 +1062,50 @@ export const INITIAL_LECTURES: RecordedLecture[] = [
   {
     id: 'rec-1',
     title: 'Week 4: Building Secure JWT Authentication & Refresh Tokens',
+    description: 'Complete walkthrough of JWT signing, cookie security, and refresh token rotation middleware.',
     domain: 'MERN Stack Development',
+    batch: 'Batch W-2026-A',
+    mentorName: 'Vikram Lale',
+    date: '2026-10-24',
     week: 4,
     videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
     thumbnailUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=600&q=80',
     duration: '1h 24m',
     viewsCount: 342,
-    pdfNotesUrl: '#'
+    pdfNotesUrl: 'https://github.com/websums/jwt-auth-notes',
+    pdfNotesName: 'JWT_Security_Handbook.pdf'
   },
   {
     id: 'rec-2',
-    title: 'Week 3: CNN Convolutional Layers & Image Augmentation',
-    domain: 'Artificial Intelligence & Deep Learning',
+    title: 'Week 3: Advanced NumPy, Pandas EDA & Data Visualization',
+    description: 'Comprehensive exploratory data analysis on real-world financial and customer datasets.',
+    domain: 'Data Science & Data Analytics',
+    batch: 'Batch RK-Gurukul-DS',
+    mentorName: 'Vikram Lale',
+    date: '2026-10-22',
     week: 3,
     videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80',
-    duration: '1h 45m',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=600&q=80',
+    duration: '1h 35m',
     viewsCount: 289,
-    pdfNotesUrl: '#'
+    pdfNotesUrl: 'https://github.com/websums/numpy-pandas-notes',
+    pdfNotesName: 'Data_Wrangling_Mastery.pdf'
   },
   {
     id: 'rec-3',
-    title: 'Week 2: Advanced Figma Auto-Layout & Component Variants',
-    domain: 'UI/UX Design & Product Strategy',
-    week: 2,
+    title: 'Week 3: MongoDB Aggregations, Indexing & High-Performance Queries',
+    description: 'Learn aggregation pipelines ($match, $group, $lookup, $unwind) and indexing strategies.',
+    domain: 'MERN Stack Development',
+    batch: 'Batch W-2026-A',
+    mentorName: 'Vikram Lale',
+    date: '2026-10-20',
+    week: 3,
     videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80',
     duration: '1h 10m',
     viewsCount: 410,
-    pdfNotesUrl: '#'
+    pdfNotesUrl: 'https://github.com/websums/mongo-aggregations-notes',
+    pdfNotesName: 'MongoDB_Aggregations.pdf'
   }
 ];
 

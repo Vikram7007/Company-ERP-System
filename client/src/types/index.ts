@@ -117,27 +117,39 @@ export interface Mentor {
 export interface LiveClass {
   id: string;
   title: string;
+  description?: string;
   domain: string;
   batch: string;
   mentorName: string;
   date: string;
   time: string;
+  endTime?: string;
   durationMinutes: number;
-  meetingPlatform: 'Zoom' | 'Google Meet' | 'Microsoft Teams';
+  meetingPlatform: 'Zoom' | 'Google Meet' | 'Microsoft Teams' | 'YouTube Live' | 'Other';
   meetingUrl: string;
   status: 'Upcoming' | 'Live' | 'Completed';
+  recordingUrl?: string;
+  notesUrl?: string;
+  notesFileName?: string;
+  completedAt?: string;
 }
 
 export interface RecordedLecture {
   id: string;
   title: string;
+  description?: string;
   domain: string;
-  week: number;
+  batch?: string;
+  week?: number;
   videoUrl: string;
-  thumbnailUrl: string;
+  thumbnailUrl?: string;
   duration: string;
-  viewsCount: number;
+  viewsCount?: number;
   pdfNotesUrl?: string;
+  pdfNotesName?: string;
+  date?: string;
+  mentorName?: string;
+  liveClassId?: string;
 }
 
 export interface AttendanceRecord {
