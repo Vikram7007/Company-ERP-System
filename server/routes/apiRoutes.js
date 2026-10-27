@@ -85,6 +85,55 @@ const sendMentorVerificationEmail = async (email, otp, mentorName) => {
   });
 };
 
+const studentVerificationCodes = new Map();
+
+const sendStudentVerificationEmail = async (email, otp, studentName, mentorName) => {
+  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM_EMAIL } = process.env;
+  if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASSWORD || !SMTP_FROM_EMAIL) {
+    throw new Error('Email service is not configured');
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: Number(SMTP_PORT),
+    secure: Number(SMTP_PORT) === 465,
+    auth: { user: SMTP_USER, pass: SMTP_PASSWORD }
+  });
+
+  await transporter.sendMail({
+    from: `"Websums Portal" <${SMTP_FROM_EMAIL}>`,
+    to: email,
+    subject: 'Websums Intern Onboarding: Verify Your Email Address',
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 28px; background: #ffffff; border: 1px solid #fed7aa; border-radius: 20px; box-shadow: 0 10px 25px rgba(255,118,0,0.08);">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h2 style="color: #ff7600; margin: 0; font-size: 24px; font-weight: 800;">Websums Software Pvt. Ltd.</h2>
+          <p style="color: #64748b; font-size: 13px; margin: 6px 0 0 0; font-weight: 600;">Enterprise ERP & Internship Learning Management System</p>
+        </div>
+        <div style="background: #fffaf5; border: 1px solid #ffedd5; border-radius: 16px; padding: 24px; margin-bottom: 24px;">
+          <h3 style="color: #0f172a; margin: 0 0 12px 0; font-size: 17px; font-weight: 700;">Student / Intern Email Verification</h3>
+          <p style="color: #334155; font-size: 14px; line-height: 1.6; margin: 0 0 16px 0;">
+            Hello <strong>${studentName || 'Intern'}</strong>,<br/>
+            You are being enrolled into the Websums Internship Program by Mentor <strong>${mentorName || 'Senior Instructor'}</strong>.
+          </p>
+          <p style="color: #475569; font-size: 13px; margin: 0 0 8px 0;">Your 6-digit email verification code is:</p>
+          <div style="text-align: center; margin: 20px 0;">
+            <span style="display: inline-block; font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #ff7600; background: #ffffff; padding: 12px 28px; border-radius: 12px; border: 2px dashed #ff7600; box-shadow: 0 4px 12px rgba(255,118,0,0.12);">
+              ${otp}
+            </span>
+          </div>
+          <p style="color: #64748b; font-size: 12px; margin: 0; line-height: 1.5;">
+            This OTP confirms your genuine email address and unlocks your access to the Websums Student LMS Dashboard. Valid for 10 minutes.
+          </p>
+        </div>
+        <div style="border-top: 1px solid #f1f5f9; padding-top: 16px; font-size: 11px; color: #94a3b8; text-align: center;">
+          Websums Software Pvt. Ltd. • All Rights Reserved
+        </div>
+      </div>
+    `
+  });
+};
+
 const router = express.Router();
 const ok = (res, data, status = 200) => res.status(status).json({ success: true, data });
 const fail = (res, message, status = 400) => res.status(status).json({ success: false, message });
@@ -198,7 +247,72 @@ router.patch('/domains/:id', authenticate, authorize('CEO'), (req, res) => { con
 
 router.get('/students', authenticate, authorize('CEO', 'Mentor'), (req, res) => ok(res, query(store.students, req)));
 router.get('/students/me', authenticate, (req, res) => ok(res, store.students.find((item) => item.userId === req.user.id) || null));
-router.get('/students/:id', authenticate, (req, res) => { const item = find(store.students, req.params.id); return item ? ok(res, item) : fail(res, 'Student not found', 404); });
+// Verify student email authenticity (DNS MX check + send OTP)
+router.post('/students/verify-email-request', authenticate, authorize('CEO', 'Mentor'), async (req, res) => {
+  const { email, name, mentorName } = req.body;
+  const normalized = String(email || '').trim().toLowerCase();
+
+  if (!normalized) return fail(res, 'Email address is required');
+
+  const check = await verifyEmailOriginality(normalized);
+  if (!check.valid) {
+    return fail(res, check.message, 400);
+  }
+
+  if (store.users.some(u => u.email === normalized)) {
+    return fail(res, 'This email address is already registered in the system.', 409);
+  }
+
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  studentVerificationCodes.set(normalized, {
+    otp,
+    expiresAt: Date.now() + 10 * 60 * 1000,
+    verified: false
+  });
+
+  try {
+    await sendStudentVerificationEmail(normalized, otp, name, mentorName);
+    ok(res, {
+      message: `Verification OTP sent to ${normalized}. Please check inbox.`,
+      domainVerified: true,
+      mxServer: check.mx
+    });
+  } catch (err) {
+    console.error('Student verification email error:', err.message);
+    fail(res, 'Could not send verification email. ' + err.message, 503);
+  }
+});
+
+// Confirm OTP code for student email
+router.post('/students/verify-email-confirm', authenticate, authorize('CEO', 'Mentor'), (req, res) => {
+  const { email, otp } = req.body;
+  const normalized = String(email || '').trim().toLowerCase();
+  const entry = studentVerificationCodes.get(normalized);
+
+  if (!entry) {
+    return fail(res, 'No verification request found for this email. Please click "Verify Email" first.', 400);
+  }
+
+  if (Date.now() > entry.expiresAt) {
+    studentVerificationCodes.delete(normalized);
+    return fail(res, 'Verification code has expired. Please request a new one.', 400);
+  }
+
+  if (String(otp || '').trim() !== entry.otp) {
+    return fail(res, 'Incorrect verification code. Please check and try again.', 400);
+  }
+
+  entry.verified = true;
+  const verificationToken = `verified-std-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  entry.token = verificationToken;
+
+  ok(res, {
+    verified: true,
+    verificationToken,
+    message: 'Student email address verified successfully as genuine & original!'
+  });
+});
+
 router.post('/students', authenticate, authorize('CEO', 'Mentor'), async (req, res) => {
   const normalizedEmail = String(req.body.email || '').toLowerCase().trim();
   let user = store.users.find(u => u.email === normalizedEmail);
