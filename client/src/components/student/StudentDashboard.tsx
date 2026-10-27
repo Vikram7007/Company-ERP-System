@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   GraduationCap, 
   Video, 
@@ -61,7 +61,7 @@ import confetti from 'canvas-confetti';
 import { INITIAL_DOMAINS, INITIAL_LIVE_CLASSES, INITIAL_LECTURES, INITIAL_ASSIGNMENTS, SAMPLE_QUIZ, INITIAL_JOBS } from '../../data/mockData';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
-import { SyllabusLesson, LiveClass, RecordedLecture } from '../../types';
+import { SyllabusLesson, LiveClass, RecordedLecture, Student } from '../../types';
 import { calculateStudentAttendanceStats } from '../../utils/attendanceCalculator';
 import { getLectureRealTimeStatus, getLectureCountdown, formatLectureSchedule } from '../../utils/lectureTimeUtils';
 import { LectureVideoModal } from '../common/LectureVideoModal';
@@ -91,13 +91,31 @@ export const StudentDashboard: React.FC = () => {
     (user?.email && s.email && s.email.toLowerCase() === user.email.toLowerCase()) ||
     (user?.id && s.userId === user.id) ||
     (user?.name && s.name.toLowerCase() === user.name.toLowerCase())
-  ) || students[0];
+  ) || (user ? {
+    id: user.id || 'std-current',
+    userId: user.id,
+    name: user.name,
+    email: user.email,
+    phone: user.phone || '',
+    domain: user.domain || 'MERN Stack Development',
+    batch: user.batch || 'Batch W-2026-A',
+    mentorName: user.mentorName || 'Vikram Sanjay Lale',
+    profileCompletion: 50,
+    attendancePercentage: 0,
+    assignmentsSubmitted: 0,
+    totalAssignments: 0,
+    averageGrade: 'N/A',
+    joinedDate: new Date().toISOString().split('T')[0],
+    status: 'Active',
+    college: user.college || '',
+    feeDetails: { totalFee: 0, paidAmount: 0, pendingAmount: 0, status: 'Paid', transactions: [] }
+  } as Student : students[0]);
 
   const studentDomain = selectedDomainOverride || matchedStudent?.domain || user?.domain || 'MERN Stack Development';
   const studentBatch = matchedStudent?.batch || user?.batch || 'Batch W-2026-A';
   const studentName = matchedStudent?.name || user?.name || 'Aarav Sharma';
   const studentEmail = matchedStudent?.email || user?.email || 'student@websums.com';
-  const mentorName = matchedStudent?.mentorName || 'Vikram Lale';
+  const mentorName = matchedStudent?.mentorName || user?.mentorName || 'Vikram Sanjay Lale';
 
   // Get current domain syllabus object (fallback to first domain if not matched)
   const currentDomainObj = INITIAL_DOMAINS.find(d => 
@@ -143,15 +161,23 @@ export const StudentDashboard: React.FC = () => {
   };
 
   // Real Calculated Dynamic Attendance Rate from actual daily reports
-  const studentAttendanceStats = calculateStudentAttendanceStats(matchedStudent?.id || 'std-101', attendanceReports);
-  const attendanceRate = studentAttendanceStats.totalSessions > 0
+  const studentAttendanceStats = calculateStudentAttendanceStats(
+    matchedStudent?.id || '',
+    attendanceReports,
+    'All',
+    studentName
+  );
+  const hasAttendanceSessions = studentAttendanceStats.totalSessions > 0;
+  const attendanceRate = hasAttendanceSessions
     ? studentAttendanceStats.attendancePercentage
-    : (matchedStudent?.attendancePercentage || 96);
+    : (matchedStudent?.attendancePercentage !== undefined && matchedStudent.attendancePercentage > 0 && !String(matchedStudent.id).startsWith('usr') ? matchedStudent.attendancePercentage : 0);
 
   // Real Submissions by this student
   const mySubmissions = submissions.filter(sub => 
-    (sub.studentId === matchedStudent?.id || sub.studentId === 'std-current') ||
-    (sub.studentName && sub.studentName.toLowerCase() === studentName.toLowerCase())
+    (matchedStudent?.id && sub.studentId === matchedStudent.id) ||
+    (user?.id && sub.studentId === user.id) ||
+    (sub.studentId === 'std-current') ||
+    (sub.studentName && sub.studentName.toLowerCase().trim() === studentName.toLowerCase().trim())
   );
 
   // Domain & Batch Aware Content Filtering
@@ -167,7 +193,11 @@ export const StudentDashboard: React.FC = () => {
     return itemBatch.toLowerCase() === studentBatch.toLowerCase();
   };
 
-  const domainAssignments = assignments.filter(a => isDomainMatch(a.domain) && isBatchMatch(a.batch));
+  // If assignments are posted specifically for student's batch, show those; otherwise show all domain-wide assignments
+  const batchSpecificAssignments = assignments.filter(a => isDomainMatch(a.domain) && isBatchMatch(a.batch));
+  const domainAssignments = batchSpecificAssignments.length > 0
+    ? batchSpecificAssignments
+    : assignments.filter(a => isDomainMatch(a.domain));
   const domainQuizzes = quizzes.filter(q => isDomainMatch(q.domain));
 
   // Live classes for this batch & domain
@@ -247,10 +277,11 @@ export const StudentDashboard: React.FC = () => {
     quizCategoryFilter === 'All' ? true : q.category === quizCategoryFilter
   );
 
-  const completedQuizzes = domainQuizzes.filter(q => q.status === 'Completed' || (q.bestScore && q.bestScore > 0));
+  const completedQuizzes = domainQuizzes.filter(q => q.status === 'Completed' || (q.bestScore !== undefined && q.bestScore > 0));
+  const totalEarnedXp = completedQuizzes.reduce((acc, q) => acc + (q.xpReward || 15), 0);
   const overallScoreAvg = completedQuizzes.length > 0 
-    ? Math.round(completedQuizzes.reduce((acc, q) => acc + (q.bestScore || 80), 0) / completedQuizzes.length)
-    : 82;
+    ? Math.round(completedQuizzes.reduce((acc, q) => acc + (q.bestScore || 0), 0) / completedQuizzes.length)
+    : 0;
 
   // Video Modal, Search & View Mode + Pagination
   const [playingVideo, setPlayingVideo] = useState<string | null>(null);
@@ -275,7 +306,7 @@ export const StudentDashboard: React.FC = () => {
     return <span className="inline-flex items-center text-[10px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 shadow-2xs">🎬 MP4 Video</span>;
   };
 
-  // Assignment Submission & Detail State
+  // Assignment Submission & Detail State (Dynamic from real submissions)
   interface SubmissionDetail {
     assignmentId: string;
     link: string;
@@ -286,19 +317,34 @@ export const StudentDashboard: React.FC = () => {
     feedback?: string;
   }
 
-  const [submittedAssignments, setSubmittedAssignments] = useState<string[]>(['asg-demo-eval']);
+  const [submittedAssignments, setSubmittedAssignments] = useState<string[]>([]);
   const [submissionLinks, setSubmissionLinks] = useState<Record<string, string>>({});
-  const [submissionDetails, setSubmissionDetails] = useState<Record<string, SubmissionDetail>>({
-    'asg-demo-eval': {
-      assignmentId: 'asg-demo-eval',
-      link: 'https://github.com/aarav-sharma/ecommerce-backend-api',
-      submittedAt: 'Aug 10, 2026',
-      status: 'Evaluated',
-      marksObtained: 85,
-      maxMarks: 100,
-      feedback: 'Excellent clean MVC architecture and Mongoose schema design! Express validators are well implemented. Try adding rate limiting middleware for production security.'
+  const [submissionDetails, setSubmissionDetails] = useState<Record<string, SubmissionDetail>>({});
+
+  // Real-time synchronization of submissions for this student
+  useEffect(() => {
+    if (mySubmissions.length > 0) {
+      const ids: string[] = [];
+      const details: Record<string, SubmissionDetail> = {};
+      mySubmissions.forEach(sub => {
+        ids.push(sub.assignmentId);
+        details[sub.assignmentId] = {
+          assignmentId: sub.assignmentId,
+          link: (sub as any).submissionLink || (sub as any).link || sub.fileUrl || '',
+          submittedAt: sub.submittedAt || 'Recently',
+          status: (sub.status as any) || 'Submitted',
+          marksObtained: (sub as any).marksObtained,
+          maxMarks: (sub as any).maxMarks || 100,
+          feedback: (sub as any).feedback
+        };
+      });
+      setSubmittedAssignments(ids);
+      setSubmissionDetails(details);
+    } else {
+      setSubmittedAssignments([]);
+      setSubmissionDetails({});
     }
-  });
+  }, [submissions, matchedStudent?.id, studentName]);
 
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [resubmittingId, setResubmittingId] = useState<string | null>(null);
@@ -328,7 +374,7 @@ export const StudentDashboard: React.FC = () => {
           status: 'Submitted'
         }
       }));
-      submitAssignment(asgId, studentName, link);
+      submitAssignment(asgId, studentName, link, matchedStudent?.id || user?.id);
       setSubmittingId(null);
       setResubmittingId(null);
       confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
@@ -336,12 +382,12 @@ export const StudentDashboard: React.FC = () => {
     }, 1000);
   };
 
-  // Resume Builder Data
+  // Resume Builder Data (Real student profile data)
   const resumeData = {
     name: studentName,
     email: studentEmail,
-    phone: '+91 98765 43210',
-    college: 'IIT Delhi / Websums Software',
+    phone: matchedStudent?.phone || user?.phone || '+91 98765 43210',
+    college: matchedStudent?.college || user?.college || 'Engineering Institute',
     domain: studentDomain,
     summary: `Passionate ${studentDomain} engineer trained at Websums Software Pvt. Ltd. Proficient in enterprise production code, REST APIs, and industry standard tooling.`,
     skills: currentDomainObj.syllabus.flatMap(s => s.topics).slice(0, 10).join(', ')
@@ -623,30 +669,44 @@ export const StudentDashboard: React.FC = () => {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
                 <div className="p-4 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 space-y-1">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Attendance Rate</span>
-                  <p className="text-xl font-black text-emerald-400">{attendanceRate}%</p>
-                  <p className="text-[10px] text-slate-400">
-                    {studentAttendanceStats.totalSessions > 0 ? `${studentAttendanceStats.presentCount} of ${studentAttendanceStats.totalSessions} sessions` : 'Active intern status'}
+                  <p className="text-xl font-black text-emerald-400">
+                    {hasAttendanceSessions || (matchedStudent?.attendancePercentage && matchedStudent.attendancePercentage > 0) ? `${attendanceRate}%` : '0%'}
+                  </p>
+                  <p className="text-[10px] text-slate-400 truncate">
+                    {hasAttendanceSessions 
+                      ? `${studentAttendanceStats.presentCount} of ${studentAttendanceStats.totalSessions} sessions attended` 
+                      : 'No attendance sessions logged yet'}
                   </p>
                 </div>
 
                 <div className="p-4 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 space-y-1">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Assigned Mentor</span>
                   <p className="text-base font-black text-indigo-300 truncate">{mentorName}</p>
-                  <p className="text-[10px] text-slate-400">Senior Industry Mentor</p>
+                  <p className="text-[10px] text-slate-400 truncate">{studentDomain} Lead Mentor</p>
                 </div>
 
                 <div className="p-4 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 space-y-1">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Assignments</span>
                   <p className="text-xl font-black text-blue-400">
-                    {mySubmissions.length} / {domainAssignments.length || 8}
+                    {mySubmissions.length} / {domainAssignments.length}
                   </p>
-                  <p className="text-[10px] text-slate-400">Domain submissions completed</p>
+                  <p className="text-[10px] text-slate-400 truncate">
+                    {domainAssignments.length === 0
+                      ? 'No assignments posted'
+                      : `${mySubmissions.length} submitted • ${Math.max(0, domainAssignments.length - mySubmissions.length)} pending`}
+                  </p>
                 </div>
 
                 <div className="p-4 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 space-y-1">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Quiz Performance</span>
-                  <p className="text-xl font-black text-amber-400">{overallScoreAvg}%</p>
-                  <p className="text-[10px] text-slate-400">XP Points: +240</p>
+                  <p className="text-xl font-black text-amber-400">
+                    {completedQuizzes.length > 0 ? `${overallScoreAvg}%` : '0%'}
+                  </p>
+                  <p className="text-[10px] text-slate-400 truncate">
+                    {completedQuizzes.length > 0
+                      ? `${completedQuizzes.length} completed • +${totalEarnedXp} XP`
+                      : `0 of ${domainQuizzes.length} quizzes attempted (0 XP)`}
+                  </p>
                 </div>
               </div>
 
@@ -693,7 +753,7 @@ export const StudentDashboard: React.FC = () => {
               </div>
               <div className="space-y-1">
                 <span className="text-[10px] text-slate-400 font-bold uppercase">Affiliated College</span>
-                <p className="font-extrabold text-slate-900">{matchedStudent?.college || 'IIT Delhi'}</p>
+                <p className="font-extrabold text-slate-900">{matchedStudent?.college || user?.college || 'Registered Institution'}</p>
               </div>
               <div className="space-y-1">
                 <span className="text-[10px] text-slate-400 font-bold uppercase">Internship Status</span>
@@ -1023,10 +1083,15 @@ export const StudentDashboard: React.FC = () => {
                   <div>
                     <div className="flex justify-between text-slate-700 mb-1">
                       <span>Assignments Submitted</span>
-                      <span className="text-purple-600">{submittedAssignments.length} / 8</span>
+                      <span className="text-purple-600">
+                        {mySubmissions.length} / {domainAssignments.length}
+                      </span>
                     </div>
                     <div className="w-full bg-slate-100 rounded-full h-2">
-                      <div className="bg-purple-600 h-2 rounded-full" style={{ width: `${(submittedAssignments.length / 8) * 100}%` }}></div>
+                      <div 
+                        className="bg-purple-600 h-2 rounded-full" 
+                        style={{ width: `${domainAssignments.length > 0 ? Math.min(100, (mySubmissions.length / domainAssignments.length) * 100) : 0}%` }}
+                      ></div>
                     </div>
                   </div>
                 </div>
@@ -1652,9 +1717,9 @@ export const StudentDashboard: React.FC = () => {
 
               <div className="flex items-center space-x-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
                 <div className="text-right">
-                  <span className="text-xs font-extrabold text-slate-900">{submittedAssignments.length} / {domainAssignments.length || 8} Completed</span>
+                  <span className="text-xs font-extrabold text-slate-900">{mySubmissions.length} / {domainAssignments.length} Completed</span>
                   <div className="w-28 bg-slate-200 h-1.5 rounded-full overflow-hidden mt-1">
-                    <div className="bg-blue-600 h-full rounded-full" style={{ width: `${(submittedAssignments.length / (domainAssignments.length || 8)) * 100}%` }}></div>
+                    <div className="bg-blue-600 h-full rounded-full" style={{ width: `${domainAssignments.length > 0 ? Math.min(100, (mySubmissions.length / domainAssignments.length) * 100) : 0}%` }}></div>
                   </div>
                 </div>
               </div>
@@ -1737,7 +1802,7 @@ export const StudentDashboard: React.FC = () => {
                             </button>
                             {subDetail?.feedback && (
                               <button
-                                onClick={() => setFeedbackModal({ title: asg.title, score: subDetail.marksObtained || 85, maxMarks: 100, feedback: subDetail.feedback || '' })}
+                                onClick={() => setFeedbackModal({ title: asg.title, score: subDetail.marksObtained ?? 0, maxMarks: subDetail.maxMarks || asg.maxMarks || 100, feedback: subDetail.feedback || '' })}
                                 className="px-3 py-1.5 bg-purple-100 text-purple-800 font-extrabold rounded-xl"
                               >
                                 View Feedback
@@ -1875,31 +1940,48 @@ export const StudentDashboard: React.FC = () => {
               <p className="text-xs text-slate-500 font-medium">Domain: {studentDomain} • Batch {studentBatch}</p>
             </div>
 
-            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4 max-w-md mx-auto">
-              <div className="flex justify-between text-xs font-black">
-                <span>Eligibility Score</span>
-                <span className="text-amber-600">72% / 100%</span>
-              </div>
-              <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
-                <div className="bg-amber-500 h-full rounded-full" style={{ width: '72%' }}></div>
-              </div>
-              <p className="text-[11px] font-semibold text-slate-500">Reach 75% total progress to generate your verified certificate.</p>
-            </div>
+            {(() => {
+              const asgPct = domainAssignments.length > 0 ? Math.round((mySubmissions.length / domainAssignments.length) * 100) : 0;
+              const certEligScore = Math.round((attendanceRate * 0.5) + (asgPct * 0.5));
+              const isEligible = certEligScore >= 75 && attendanceRate >= 75;
 
-            <div className="space-y-2 text-left max-w-md mx-auto text-xs font-semibold">
-              <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-800">
-                <span>✓ Attendance &gt; 75%</span>
-                <span className="font-extrabold">Passed ({attendanceRate}%)</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-800">
-                <span>✓ All Domain Assignments Submitted</span>
-                <span className="font-extrabold">Passed</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-800">
-                <span>○ Final Industry Project Evaluation</span>
-                <span className="font-extrabold">Pending</span>
-              </div>
-            </div>
+              return (
+                <>
+                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4 max-w-md mx-auto">
+                    <div className="flex justify-between text-xs font-black">
+                      <span>Eligibility Score</span>
+                      <span className={isEligible ? "text-emerald-600" : "text-amber-600"}>{certEligScore}% / 100%</span>
+                    </div>
+                    <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-500 ${isEligible ? "bg-emerald-500" : "bg-amber-500"}`} 
+                        style={{ width: `${Math.min(100, certEligScore)}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-[11px] font-semibold text-slate-500">Reach 75% total progress to generate your verified certificate.</p>
+                  </div>
+
+                  <div className="space-y-2 text-left max-w-md mx-auto text-xs font-semibold">
+                    <div className={`flex items-center justify-between p-3 rounded-xl border ${
+                      attendanceRate >= 75 ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}>
+                      <span>{attendanceRate >= 75 ? '✓' : '○'} Attendance &gt; 75%</span>
+                      <span className="font-extrabold">{attendanceRate >= 75 ? 'Passed' : 'In Progress'} ({attendanceRate}%)</span>
+                    </div>
+                    <div className={`flex items-center justify-between p-3 rounded-xl border ${
+                      domainAssignments.length > 0 && mySubmissions.length >= domainAssignments.length ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}>
+                      <span>{domainAssignments.length > 0 && mySubmissions.length >= domainAssignments.length ? '✓' : '○'} All Domain Assignments Submitted</span>
+                      <span className="font-extrabold">{domainAssignments.length > 0 && mySubmissions.length >= domainAssignments.length ? 'Passed' : `${mySubmissions.length} / ${domainAssignments.length}`}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-800">
+                      <span>○ Final Industry Project Evaluation</span>
+                      <span className="font-extrabold">Pending</span>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}

@@ -9,6 +9,8 @@ export interface User {
   phone?: string;
   domain?: string;
   batch?: string;
+  college?: string;
+  mentorName?: string;
   token?: string;
 }
 

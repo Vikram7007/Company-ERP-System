@@ -36,10 +36,11 @@ export interface StudentMonthlyAttendanceSummary {
 export function calculateStudentAttendanceStats(
   studentId: string,
   reports: DailyAttendanceReport[],
-  monthFilter: string = 'All' // e.g., '2026-10' or 'All'
+  monthFilter: string = 'All', // e.g., '2026-10' or 'All'
+  studentNameTarget?: string
 ): StudentMonthlyAttendanceSummary {
   const matchingRecords: DetailedAttendanceProofRecord[] = [];
-  let studentName = '';
+  let studentName = studentNameTarget || '';
 
   // Sort reports chronologically descending (newest first)
   const sortedReports = [...reports].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -50,10 +51,12 @@ export function calculateStudentAttendanceStats(
       return;
     }
 
-    const rec = report.records.find(
-      r => r.studentId === studentId || 
-           (r.studentName && studentId && r.studentName.toLowerCase() === studentId.toLowerCase())
-    );
+    const rec = report.records.find(r => {
+      if (r.studentId && studentId && r.studentId === studentId) return true;
+      if (studentNameTarget && r.studentName && r.studentName.toLowerCase().trim() === studentNameTarget.toLowerCase().trim()) return true;
+      if (studentId && r.studentName && r.studentName.toLowerCase().trim() === studentId.toLowerCase().trim()) return true;
+      return false;
+    });
 
     if (rec) {
       if (!studentName && rec.studentName) studentName = rec.studentName;
@@ -92,10 +95,12 @@ export function calculateStudentAttendanceStats(
   // Institutional evaluation: Present = 1 credit, Late = 1 credit (with record note)
   const attendancePercentage = totalSessions > 0
     ? Math.min(100, Math.round(((presentCount + lateCount) / totalSessions) * 100))
-    : 100;
+    : 0;
 
   let complianceStatus: 'Eligible' | 'Warning' | 'Critical' = 'Eligible';
-  let complianceMessage = 'Compliant: Eligible for Certificate of Internship & Final Evaluation (>= 75%)';
+  let complianceMessage = totalSessions === 0
+    ? 'Enrolled: No attendance sessions logged yet'
+    : 'Compliant: Eligible for Certificate of Internship & Final Evaluation (>= 75%)';
 
   if (attendancePercentage < 65) {
     complianceStatus = 'Critical';

@@ -20,7 +20,7 @@ interface DataContextType {
   submissions: Submission[];
   attendanceReports: DailyAttendanceReport[];
   addAssignment: (asgData: Omit<Assignment, 'id' | 'totalSubmissions'>) => void;
-  submitAssignment: (asgId: string, studentName: string, link: string) => void;
+  submitAssignment: (asgId: string, studentName: string, link: string, studentId?: string) => void;
   saveAttendanceReport: (reportData: Omit<DailyAttendanceReport, 'id'>) => void;
   liveClasses: LiveClass[];
   recordedLectures: RecordedLecture[];
@@ -379,13 +379,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     apiPost<Assignment>('/api/assignments', newAsg).catch(console.error);
   };
 
-  const submitAssignment = (asgId: string, studentName: string, link: string) => {
+  const submitAssignment = (asgId: string, studentName: string, link: string, studentId?: string) => {
     const newSubmission: Submission = {
       id: `sub-${Date.now()}`,
       assignmentId: asgId,
       assignmentTitle: assignments.find(a => a.id === asgId)?.title || 'Assignment',
-      studentId: `std-current`,
-      studentName: studentName || 'Aarav Sharma',
+      studentId: studentId || `std-current`,
+      studentName: studentName || 'Student',
       submittedAt: new Date().toISOString().split('T')[0],
       fileUrl: link || '#',
       status: 'Pending'
