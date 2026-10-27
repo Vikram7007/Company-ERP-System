@@ -42,7 +42,8 @@ import {
   Trash2,
   Radio,
   ExternalLink,
-  Layers
+  Layers,
+  UserPlus
 } from 'lucide-react';
 import { INITIAL_LIVE_CLASSES, INITIAL_ASSIGNMENTS, INITIAL_LECTURES, INITIAL_DOMAINS } from '../../data/mockData';
 import { Student, Assignment, StudentApplication, LiveClass, RecordedLecture } from '../../types';
@@ -56,11 +57,12 @@ import { StudentAttendanceProofModal } from '../common/StudentAttendanceProofMod
 import { ScheduleLectureModal } from '../common/ScheduleLectureModal';
 import { EndClassRecordingModal } from '../common/EndClassRecordingModal';
 import { LectureVideoModal } from '../common/LectureVideoModal';
+import { AddStudentModal } from '../common/AddStudentModal';
 import { getLectureRealTimeStatus, getLectureCountdown, formatLectureSchedule, parseVideoEmbed } from '../../utils/lectureTimeUtils';
 
 export const MentorDashboard: React.FC = () => {
   const { 
-    students, applications, updateApplicationStatus, assignments, addAssignment, 
+    students, addStudent, applications, updateApplicationStatus, assignments, addAssignment, 
     submissions, attendanceReports, saveAttendanceReport, 
     liveClasses, recordedLectures, addLiveClass, updateLiveClass, deleteLiveClass, 
     addRecordedLecture, deleteRecordedLecture, endLiveClass, resetData 
@@ -113,6 +115,24 @@ export const MentorDashboard: React.FC = () => {
   });
 
   const [attendanceSaved, setAttendanceSaved] = useState(false);
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
+  const [studentSuccessMessage, setStudentSuccessMessage] = useState<string | null>(null);
+
+  const handleAddStudent = (studentData: Omit<Student, 'id' | 'feeDetails'> & { totalFee?: number; paidAmount?: number }) => {
+    addStudent(studentData);
+    if (studentData.userId) {
+      setAttendanceMap(prev => ({
+        ...prev,
+        [studentData.userId!]: 'Present'
+      }));
+    }
+    if (studentData.batch) {
+      setSelectedAttendanceBatch(studentData.batch);
+    }
+    setStudentSuccessMessage(`🎓 Intern "${studentData.name}" successfully enrolled into ${studentData.batch}!`);
+    setTimeout(() => setStudentSuccessMessage(null), 5000);
+    setShowAddStudentModal(false);
+  };
 
   // List of available batches dynamically from students + defaults
   const availableAttendanceBatches = Array.from(new Set([
@@ -383,13 +403,24 @@ export const MentorDashboard: React.FC = () => {
           <p className="text-xs text-orange-950/90 mt-1 font-medium">Assigned Domains: MERN Stack Development & Full Stack Java</p>
         </div>
 
-        <div className="flex items-center space-x-3 bg-white/25 px-4 py-2.5 rounded-2xl backdrop-blur-md border border-white/40 text-xs font-semibold shadow-sm">
-          <div>
-            <div className="text-white font-black text-sm">
-              {selectedAttendanceBatch === 'All' ? 'All Active Batches' : selectedAttendanceBatch}
-            </div>
-            <div className="text-orange-950/90 text-[10px] font-bold">
-              {students.filter(s => selectedAttendanceBatch === 'All' || s.batch === selectedAttendanceBatch).length} Active Students
+        <div className="flex items-center space-x-3 shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowAddStudentModal(true)}
+            className="px-4 py-2.5 bg-white hover:bg-orange-50 text-orange-600 font-extrabold text-xs rounded-2xl shadow-md shadow-orange-950/10 transition-all flex items-center space-x-2 cursor-pointer active:scale-95"
+          >
+            <UserPlus className="w-4 h-4 stroke-[2.5]" />
+            <span>+ Enroll Student</span>
+          </button>
+
+          <div className="flex items-center space-x-3 bg-white/25 px-4 py-2.5 rounded-2xl backdrop-blur-md border border-white/40 text-xs font-semibold shadow-sm">
+            <div>
+              <div className="text-white font-black text-sm">
+                {selectedAttendanceBatch === 'All' ? 'All Active Batches' : selectedAttendanceBatch}
+              </div>
+              <div className="text-orange-950/90 text-[10px] font-bold">
+                {students.filter(s => selectedAttendanceBatch === 'All' || s.batch === selectedAttendanceBatch).length} Active Students
+              </div>
             </div>
           </div>
         </div>
@@ -488,17 +519,35 @@ export const MentorDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Save Button */}
-            {attendanceTab === 'take' && (
+            {/* Action Buttons */}
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0 self-start lg:self-center">
               <button
-                onClick={handleSaveAttendance}
-                className="px-5 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition-all flex items-center space-x-2 shrink-0 cursor-pointer active:scale-95 self-start lg:self-center"
+                type="button"
+                onClick={() => setShowAddStudentModal(true)}
+                className="px-4 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 rounded-xl shadow-xs transition-all flex items-center space-x-2 shrink-0 cursor-pointer active:scale-95"
               >
-                <FileText className="w-4 h-4 stroke-[2]" />
-                <span>Save Attendance Report</span>
+                <UserPlus className="w-4 h-4 stroke-[2.3]" />
+                <span>+ Add Student to Batch</span>
               </button>
-            )}
+
+              {attendanceTab === 'take' && (
+                <button
+                  onClick={handleSaveAttendance}
+                  className="px-5 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition-all flex items-center space-x-2 shrink-0 cursor-pointer active:scale-95"
+                >
+                  <FileText className="w-4 h-4 stroke-[2]" />
+                  <span>Save Attendance Report</span>
+                </button>
+              )}
+            </div>
           </div>
+
+          {studentSuccessMessage && (
+            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs font-bold flex items-center space-x-2 shadow-xs animate-in fade-in">
+              <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{studentSuccessMessage}</span>
+            </div>
+          )}
 
           {attendanceSaved && (
             <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs font-bold flex items-center space-x-2 shadow-xs animate-in fade-in">
@@ -561,6 +610,14 @@ export const MentorDashboard: React.FC = () => {
 
                   {/* Quick Bulk Actions */}
                   <div className="flex items-center space-x-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddStudentModal(true)}
+                      className="px-3 py-1.5 text-xs font-bold bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-xl transition-all border border-orange-200/80 cursor-pointer flex items-center gap-1.5 shadow-2xs active:scale-95"
+                    >
+                      <UserPlus className="w-3.5 h-3.5 text-orange-600" />
+                      <span>+ Add Student</span>
+                    </button>
                     <button
                       onClick={() => handleMarkAllInBatch('Present')}
                       className="px-3.5 py-1.5 text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl transition-all border border-emerald-200/80 cursor-pointer flex items-center gap-1.5 shadow-2xs active:scale-95"
@@ -1207,8 +1264,17 @@ export const MentorDashboard: React.FC = () => {
 
                 </div>
 
-                {/* Row 2: Sync Data Button (Aligned directly under Time Pills) */}
-                <div className="flex items-center">
+                {/* Row 2: Add Student + Sync Data Button */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddStudentModal(true)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-[11px] transition-all shadow-xs active:scale-95 cursor-pointer"
+                  >
+                    <UserPlus className="w-3.5 h-3.5 stroke-[2.3]" />
+                    <span>+ Enroll New Student</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => {
@@ -2685,6 +2751,17 @@ export const MentorDashboard: React.FC = () => {
         onClose={() => setProofStudent(null)}
         student={proofStudent}
         attendanceReports={attendanceReports}
+      />
+
+      {/* ENROLL NEW STUDENT MODAL FOR MENTORS */}
+      <AddStudentModal
+        isOpen={showAddStudentModal}
+        onClose={() => setShowAddStudentModal(false)}
+        onAdd={handleAddStudent}
+        initialBatch={selectedAttendanceBatch}
+        availableBatches={availableAttendanceBatches}
+        availableDomains={INITIAL_DOMAINS.map(d => d.name)}
+        defaultMentorName={mentorName}
       />
 
     </div>

@@ -199,8 +199,39 @@ router.patch('/domains/:id', authenticate, authorize('CEO'), (req, res) => { con
 router.get('/students', authenticate, authorize('CEO', 'Mentor'), (req, res) => ok(res, query(store.students, req)));
 router.get('/students/me', authenticate, (req, res) => ok(res, store.students.find((item) => item.userId === req.user.id) || null));
 router.get('/students/:id', authenticate, (req, res) => { const item = find(store.students, req.params.id); return item ? ok(res, item) : fail(res, 'Student not found', 404); });
-router.post('/students', authenticate, authorize('CEO'), (req, res) => {
-  const student = add(store.students, { ...req.body, status: req.body.status || 'Active', feeDetails: { totalFee: Number(req.body.totalFee || 0), paidAmount: Number(req.body.paidAmount || 0), pendingAmount: Math.max(0, Number(req.body.totalFee || 0) - Number(req.body.paidAmount || 0)), status: Number(req.body.paidAmount || 0) >= Number(req.body.totalFee || 0) ? 'Paid' : 'Pending', transactions: [] } }, 'std');
+router.post('/students', authenticate, authorize('CEO', 'Mentor'), async (req, res) => {
+  const normalizedEmail = String(req.body.email || '').toLowerCase().trim();
+  let user = store.users.find(u => u.email === normalizedEmail);
+  if (!user && normalizedEmail) {
+    const rawPhone = String(req.body.phone || '').trim();
+    const cleanPhone = rawPhone.replace(/\s+/g, '') || 'student123';
+    user = {
+      id: id('usr'),
+      name: (req.body.name || 'Student').trim(),
+      email: normalizedEmail,
+      passwordHash: await bcrypt.hash(cleanPhone, 10),
+      role: 'Student',
+      phone: rawPhone,
+      domain: req.body.domain || 'MERN Stack Development',
+      batch: req.body.batch || 'Batch W-2026-A'
+    };
+    store.users.push(user);
+  }
+
+  const student = add(store.students, {
+    ...req.body,
+    userId: user ? user.id : req.body.userId || id('usr'),
+    email: normalizedEmail,
+    status: req.body.status || 'Active',
+    feeDetails: {
+      totalFee: Number(req.body.totalFee || 0),
+      paidAmount: Number(req.body.paidAmount || 0),
+      pendingAmount: Math.max(0, Number(req.body.totalFee || 0) - Number(req.body.paidAmount || 0)),
+      status: Number(req.body.paidAmount || 0) >= Number(req.body.totalFee || 0) ? 'Paid' : 'Pending',
+      transactions: []
+    }
+  }, 'std');
+  await persistStore();
   ok(res, student, 201);
 });
 router.patch('/students/:id', authenticate, authorize('CEO', 'Mentor'), (req, res) => { const item = find(store.students, req.params.id); return item ? ok(res, update(store.students, item, req.body)) : fail(res, 'Student not found', 404); });
